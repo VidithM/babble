@@ -11,5 +11,8 @@ all:
 debug: CFLAGS += -g 
 debug: all
 
+install:
+	@sudo cp $(BUILD_DIR)/babble /usr/local/bin
+
 clean:
 	@rm -rf build/*
