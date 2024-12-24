@@ -1,12 +1,10 @@
 #include "babble-lang.h"
 #include "compile.h"
 
-static void parse_args (int argc, char **argv,
-    char **out_name, char **in_name, int *debug, int *quit) {
-
+static int parse_args (int argc, char **argv,
+    char **out_name, char **in_name, int *debug) {
     // Format:
     // babble [options] file
-    // Scan tokens until an unrecognized token is received. This must be the in_name.
     const char *help = "Usage: babble [options] file\n"
         "Options:\n"
         "-g\t\t\tgenerate debugging information\n"
@@ -16,7 +14,7 @@ static void parse_args (int argc, char **argv,
     (*in_name) = NULL;
     (*out_name) = NULL;
     (*debug) = 0;
-    (*quit) = 0;
+    int ret = BABBLE_OK;
     int ok = 1;
 
     for (int i = 1; i < argc; i++) {
@@ -35,7 +33,7 @@ static void parse_args (int argc, char **argv,
                 break;
             }
             printf ("Babble v%d.%d\n", BABBLE_VER_MAJOR, BABBLE_VER_MINOR);
-            (*quit) = 1;
+            ret = BABBLE_EARLY_QUIT;
             break;
         } else if (!strcmp (argv[i], "--help")) {
             if (argc > 2) {
@@ -43,7 +41,7 @@ static void parse_args (int argc, char **argv,
                 break;
             }
             printf ("%s", help);
-            (*quit) = 1;
+            ret = BABBLE_EARLY_QUIT;
         } else {
             if (i < argc - 1) {
                 ok = 0;
@@ -57,16 +55,15 @@ static void parse_args (int argc, char **argv,
         (*in_name) = NULL;
         (*out_name) = NULL;
         (*debug) = 0;
-        (*quit) = 1;
+        ret = BABBLE_BAD_ARGS;
     }
+    return ret;
 }
 
 int main (int argc, char **argv) {
     char *out_name, *in_name;
-    int debug;
-    int quit;
-    parse_args (argc, argv, &out_name, &in_name, &debug, &quit);
-    if (quit) {
+    int debug, ret;
+    if (parse_args (argc, argv, &out_name, &in_name, &debug)) {
         // Nothing more to do
         return 0;
     }
@@ -77,6 +74,16 @@ int main (int argc, char **argv) {
     if (out_name == NULL) {
         out_name = "a.out";
     }
-    gen_asm (in_name, out_name);
+    ret = gen_asm (in_name, out_name);
+    switch (ret) {
+        case BABBLE_FILE_NOT_FOUND:
+            printf ("Babble error: Input file \"%s\" not found\n",
+                in_name);
+            break;
+        case BABBLE_COMPILE_ERR:
+            break;
+        default:
+            break;
+    }
     assemble (debug);
 }
