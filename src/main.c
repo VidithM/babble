@@ -74,16 +74,5 @@ int main (int argc, char **argv) {
     if (out_name == NULL) {
         out_name = "a.out";
     }
-    ret = gen_asm (in_name, out_name);
-    switch (ret) {
-        case BABBLE_FILE_NOT_FOUND:
-            printf ("Babble error: Input file \"%s\" not found\n",
-                in_name);
-            break;
-        case BABBLE_COMPILE_ERR:
-            break;
-        default:
-            break;
-    }
-    assemble (debug);
+    ret = compile (debug, in_name, out_name);
 }
