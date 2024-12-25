@@ -1,9 +1,0 @@
-Resources:
-    - https://asmtutor.com/ 
-
-Plan:
-    1. First iteration
-        - Only +/-, modify a single 64-bit int on the stack
-        - Be able to print out the int
-    2. Second iteration:
-        - TBD 
