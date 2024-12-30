@@ -74,5 +74,12 @@ int main (int argc, char **argv) {
     if (out_name == NULL) {
         out_name = "a.out";
     }
-    ret = compile (debug, in_name, out_name);
+    // TODO: Handle err msgs inside compile
+    char msg [MSG_LEN];
+    memset (msg, 0x0, MSG_LEN);
+    ret = compile (debug, in_name, out_name, msg);
+    if (ret) {
+        printf ("%s", msg);
+    }
+    return ret;
 }

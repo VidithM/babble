@@ -15,6 +15,9 @@
 #define BABBLE_LINKER_ERR        -6
 #define BABBLE_MISC_ERR          -7
 
+// Constants
+#define MSG_LEN 1024
+
 #include <assert.h>
 #include <ctype.h>
 #include <stddef.h>
