@@ -77,6 +77,72 @@ static int assemble (int debug, const char *asm_name,
     return BABBLE_OK;
 }
 
+enum block_labels {
+    INC,
+    EQ,
+    REP,
+    SCOPE
+};
+
+typedef struct block {
+    size_t start, end;
+    int label;
+} block;
+
+typedef struct lexer_blocklist {
+    size_t nblocks;
+    size_t cap;
+    block *blocks;
+} blocklist;
+
+
+static int init_blist (blocklist *blist,
+    size_t cap=DEFAULT_NBLOCKS) {
+    assert (blocklist != NULL);
+    blist->nblocks = 0;
+    blist->cap = cap; 
+    blist->blocks = (block*) malloc (cap * sizeof (block));
+    if (blist->blocks == NULL) {
+        return BABBLE_MISC_ERR;
+    }
+}
+
+static int resize_blist (blocklist *blist) {
+    assert (blocks_handle != NULL);
+    blist->cap *= 2;
+    realloc (blist->blocks, blist->cap);
+    if (blist->blocks == NULL) {
+        return BABBLE_MISC_ERR;
+    }
+}
+
+static int push_blist (blocklist *blist,
+    size_t start, size_t end, int label) {
+    int ret = BABBLE_OK;
+    if (blist->nblocks == blist->cap) {
+        ret = resize_blocks (blist);
+        if (!ret) {
+            return ret;
+        }
+    }
+    blist->blocks[blist->cap] = { start, end, label };
+    blist->nblocks++;
+    return ret;
+}
+
+static int free_blist (blocklist *blist) {
+    free (blist->blocks);
+    memset (blist, 0x0, sizeof (blocklist));
+}
+
+static int lex (char *in_buf, size_t buf_size, blocklist *blist) {
+    // init_blocks (blocks_handle);
+    // Phase 1: Split by ';'
+    // Phase 2: Handle REP and SCOPE
+    // Phase 3: Label blocks
+    
+}
+
 int compile (int debug, const char *in_name,
     const char *out_name, char *msg) {
 
@@ -86,7 +152,27 @@ int compile (int debug, const char *in_name,
             in_name);
         return BABBLE_FILE_NOT_FOUND;
     }
-    
+
+    char *in_buf;
+    size_t in_file_size;
+
+    fseek (in_file, 0L, SEEK_END);
+    in_file_size = ftell (in_file);
+    rewind (in_file);
+    in_buf = (char*) malloc (in_file_size);
+
+    size_t at = 0;
+    while (1) {
+        char c = fgetc (in_file);
+        if (feof (in_file)) {
+            break;
+        }
+        in_buf[at] = c;
+    }
+
+    blocklist blist;
+    lex (in_buf, &blist);
+
     struct timeval ts;
     gettimeofday (&ts, NULL);
     char asm_name [MSG_LEN];
@@ -102,10 +188,11 @@ int compile (int debug, const char *in_name,
     FILE *out_file = fopen (asm_name, "w");
     init (out_file);
 
+    #if 0
     fprintf (out_file,
         "mov rax, 0\n"
         "push rax\n");
-
+    
     char *temp;
     int line = 1;
     int comment = 0;
@@ -153,6 +240,7 @@ int compile (int debug, const char *in_name,
     }
     fprintf (out_file, "pop rax\n");
     fprintf (out_file, "call _quit\n");
+    #endif
 
     fclose (in_file);
     fclose (out_file);
