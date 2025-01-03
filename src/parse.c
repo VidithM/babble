@@ -1,63 +1,59 @@
 #include "parse.h"
 
-int match (const char *start, const char *end,
+int match (const char *buf, size_t start, size_t end,
     const char *pat, size_t len) {
     
     if ((start > end) || (end - start + 1 < len)) {
         return 0;
     }
     for (size_t i = 0; i < len; i++) {
-        if (start[i] != pat[i]) {
+        if (buf[start + i] != pat[i]) {
             return 0;       
         }
     }
     return 1;
 }
 
-static size_t _find_next (const char *start, const char *end,
-    int space) {
+static size_t _find_next (const char *buf, size_t start,
+    size_t end, int space) {
 
-    for (const char *curr = start; curr <= end; curr++) {
-        if (isspace (*curr) == space) {
-            return (size_t) curr;
+    for (size_t i = start; i <= end; i++) {
+        if (isspace (buf[i]) == space) {
+            return i;
         }
     }
     return -1;
 }
 
-static size_t _find_prev (const char *start, const char *end,
-    int space) {
+static size_t _find_prev (const char *buf, size_t start,
+    size_t end, int space) {
 
-    for (const char *curr = end; curr >= start; curr--) {
-        if (isspace (*curr) == space) {
-            return (size_t) curr;
+    for (size_t i = end; i >= start; i--) {
+        if (isspace (buf[i]) == space) {
+            return i;
         }
     }
     return -1;
 }
 
-size_t find_next (const char *start, const char *end) {
-    return _find_next (start, end, 0);
+size_t find_next (const char *buf, size_t start, size_t end) {
+    return _find_next (buf, start, end, 0);
 }
 
-size_t find_next_space (const char *start, const char *end) {
-    return _find_next (start, end, 1);
+size_t find_next_space (const char *buf, size_t start, size_t end) {
+    return _find_next (buf, start, end, 1);
 }
 
-size_t find_prev (const char *start, const char *end) {
-    return _find_prev (start, end, 0);
+size_t find_prev (const char *buf, size_t start, size_t end) {
+    return _find_prev (buf, start, end, 0);
 }
 
-size_t find_next_pat (const char *start, const char *end,
+size_t find_next_pat (const char *buf, size_t start, size_t end,
     const char *pat, size_t len) {
-
-    if ((start > end) || (end - start + 1 < len)) {
-        return 0;
-    }
-
-    for (const char *curr = start; curr + len - 1 <= end; curr++) {
-        if (match (curr, end, pat, len)) {
-            return (size_t) curr;
+        
+    for (size_t i = start; i + len - 1 <= end; i++) {
+        if (match (buf, i, i + len - 1, pat, len)) {
+            return i;
         }
     }
     return -1;

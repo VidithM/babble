@@ -33,12 +33,63 @@ static int push_block (blocklist *blist,
         }
     }
     block put;
+    memset (&put, 0x0, sizeof (block));
     put.start = start; put.end = end;
     put.start_line = start_line; put.label = label;
     blist->blocks[blist->nblocks] = put;
     blist->nblocks++;
     return ret;
 }
+
+#ifdef DEBUG
+void dbg_blist (const char *name, blocklist *blist) {
+    printf ("==== DEBUG BLOCKLIST ====\n");
+    printf ("name: %s\n", name);
+    printf ("nblocks: %ld\n", blist->nblocks);
+    printf ("cap: %ld\n\n", blist->cap);
+    for (size_t i = 0; i < blist->nblocks; i++) {
+        printf ("Block: %ld\n", i);
+        char *label_name;
+        switch (blist->blocks[i].label) {
+            case UNKNOWN:
+                label_name = "UNKNOWN";
+                break;
+            case EMPTY:
+                label_name = "EMPTY";
+                break;
+            case INC:
+                label_name = "INC";
+                break;
+            case EQ:
+                label_name = "EQ";
+                break;
+            case REP:
+                label_name = "REP";
+                break;
+            case PRINT:
+                label_name = "PRINT";
+                break;
+            case SCOPE_OPEN:
+                label_name = "SCOPE OPEN";
+                break;
+            default:
+                label_name = "SCOPE CLOSE";
+        }
+        printf ("\tLabel: %d (%s)\n", blist->blocks[i].label, label_name);
+        printf ("\tStart: %ld\n", blist->blocks[i].start);
+        printf ("\tEnd: %ld\n", blist->blocks[i].end);
+        printf ("\tStart line: %d\n", blist->blocks[i].start_line);
+        printf ("\tHotspots: ");
+        for (size_t j = 0; j < MAX_HOTSPOTS; j++) {
+            printf ("%02ld ", blist->blocks[i].hotspots[j]);
+        }
+        printf ("\n");
+    }
+    printf ("========\n");
+}
+#else
+void dbg_blist (const char *name, blocklist *blist) {}
+#endif
 
 void free_blist (blocklist *blist) {
     free (blist->blocks);
@@ -65,13 +116,15 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             line++;
         }
     }
-    printf ("start line is: %d; start: %ld\n", start_line, start);
+
     if (start < buf_size) {
         // implicit ';' at the end
         push_block (blist, start, buf_size, start_line,
             UNKNOWN);
     }
-    printf ("blist blocks: %ld\n", blist->nblocks);
+    
+    dbg_blist ("blist", blist);
+
     // Handle REP and SCOPE_OPEN, SCOPE_CLOSE; overwrite OG blist
     blocklist blist_phase2;
     init_blist (&blist_phase2, blist->cap);
@@ -80,69 +133,95 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
     for (size_t i = 0; i < blist->nblocks; i++) {
         int changed = 0;
         int failed = 0;
+        int line = blist->blocks[i].start_line;
         size_t start = blist->blocks[i].start;
         size_t end = blist->blocks[i].end;
-        size_t skipto = 0;
-        int line = blist->blocks[i].start_line;
-        for (size_t j = start; j < end; j++) {
-            if (j < skipto) {
-                goto skip;
+        size_t curr = start;
+        while (1) {
+            // jump to next non-space
+            size_t nxt = find_next (in_buf, start, blist->blocks[i].end);
+            start = nxt;
+            if (start >= end) {
+                break;
             }
+
+            if (curr < start) {
+                line += (in_buf[curr] == '\r' || in_buf[curr] == '\n');
+                curr++;
+                continue;
+            }
+            // try to consume a block
+            // =, +=, print are terminal blocks (must end with ;)
+            // REP, {, } are non-terminal
+
+            // Try to consume REP
             size_t match_res;
-            // TODO: Change parse funcs to accept in_buf, start, end separately and return absolute
-            // offset from in_buf
-            if (match_res = match (in_buf + j, in_buf + end, "rep", 3)) {
-                // 1. find_next should be a '('
-                match_res = find_next (in_buf + j + 3, in_buf + end);
-                printf ("stg 0: %p, %c\n", (char*) match_res, *((char*)match_res));
-                if (match_res == -1) { continue; }
-                if (*((char*) match_res) != '(') { continue; }
-                blist->blocks[i].hotspots[0] = (match_res - (size_t) in_buf - start);
+            if (match (in_buf, start, end, "rep", 3)) {
+                // next should be a '('
+                size_t h1, h2;
+                match_res = find_next (in_buf, start + 3, end);
+                // If fails, must be a terminal
+                if (match_res == -1) { goto terminal; }
+                if (in_buf[match_res] != '(') { goto terminal; }
+                h1 = match_res;
 
-                // 2. find_next_pat on ')'
-                match_res = find_next_pat ((char*) match_res + 1,
-                    in_buf + end, ")", 1);
-                printf ("stg 1\n");
-                if (match_res == -1) { continue; }
-                blist->blocks[i].hotspots[1] = (match_res - start);
+                // Must find a ')', else fail
+                match_res = find_next_pat (in_buf, match_res + 1, end, ")", 1);
+                if (match_res == -1) { break; }
+                h2 = match_res;
 
-                // 4. find_next should be a '{'
-                match_res = find_next ((char*) match_res + 1,
-                    in_buf + end);
-                if (match_res == -1) { continue; }
-                if (*((char*) match_res) != '{') { continue; }
-                printf ("stg 2\n");
-                blist->blocks[i].hotspots[2] = (match_res - (size_t) in_buf - start);
+                // Must find a '{', else fail
+                match_res = find_next_pat (in_buf, match_res + 1, end, "{", 1);
+                if (match_res == -1) { break; }
 
-                // jump to after the idx of (3)
-                skipto = j + 1;
-                changed = 1;
-                printf ("Matched a rep, start at %ld, end at %ld\n", j, match_res - (size_t) in_buf);
                 push_block (&blist_phase2,
-                    j,
-                    match_res - start,
+                    start,
+                    match_res,
                     line,
                     REP);
+                blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[0] = h1;
+                blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[1] = h2;
+
+                start = match_res + 1;
             }
-            if (match_res = match (in_buf + j, in_buf + end, "{", 1)) {
+            if (match (in_buf, start, end, "{", 1)) {
+                push_block (&blist_phase2,
+                    start,
+                    start,
+                    line,
+                    SCOPE_OPEN);
+                start++;
+                continue;
+            }
+            if (match (in_buf, start, end, "}", 1)) {
+                push_block (&blist_phase2,
+                    start,
+                    start,
+                    line,
+                    SCOPE_CLOSE);
+                start++;
+                continue;
+            }
+        terminal:
+            if ((match_res = find_next_pat (in_buf, start, end, "=", 1)) != -1) {
 
             }
-            if (match_res = match (in_buf + j, in_buf + end, "}", 1)) {
+            if ((match_res = find_next_pat (in_buf, start, end, "+=", 2)) != -1) {
+
             }
-            skip:
-                line += (in_buf[j] == '\r' || in_buf[j] == '\n');
+            if ((match_res = find_next_pat (in_buf, start, end, "print", 5)) != -1) {
+                // next should be a 
+            }
+            start = end;
         }
-        if (failed) {
-            free_blist (&blist_phase2);
-            return BABBLE_COMPILE_ERR;
-        }
-        if (!changed) {
+        if (start < end) {
             push_block (&blist_phase2,
                 blist->blocks[i].start,
                 blist->blocks[i].end,
                 blist->blocks[i].start_line,
                 UNKNOWN);
         }
+        dbg_blist ("blist (phase 2)", &blist_phase2);
     }
     // ...
     free_blist (blist);

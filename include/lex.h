@@ -20,7 +20,7 @@ enum block_label {
 typedef struct block {
     size_t hotspots [MAX_HOTSPOTS];
     size_t start, end;
-    size_t start_line;
+    int start_line;
     enum block_label label;
 } block;
 
@@ -30,6 +30,7 @@ typedef struct lexer_blocklist {
     block *blocks;
 } blocklist;
 
+void dbg_blist (const char *name, blocklist *blist);
 void free_blist (blocklist *blist);
 int lex (char *in_buf, size_t buf_size, blocklist *blist,
     char *msg);

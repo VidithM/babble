@@ -3,12 +3,12 @@
 
 #include "babble-lang.h"
 
-int match (const char *start, const char *end,
+int match (const char *buf, size_t start, size_t end,
     const char *pat, size_t len);
-size_t find_next (const char *start, const char *end);
-size_t find_next_space (const char *start, const char *end);
-size_t find_prev (const char *start, const char *end);
-size_t find_next_pat (const char *start, const char *end,
+size_t find_next (const char *buf, size_t start, size_t end);
+size_t find_next_space (const char *buf, size_t start, size_t end);
+size_t find_prev (const char *buf, size_t start, size_t end);
+size_t find_next_pat (const char *buf, size_t start, size_t end,
     const char *pat, size_t len);
 
 #endif
