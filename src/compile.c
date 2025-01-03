@@ -1,4 +1,6 @@
 #include "babble-lang.h"
+#include "parse.h"
+#include "lex.h"
 #include "intrinsics.h"
 
 extern intrinsic_info intrinsics [2];
@@ -77,72 +79,6 @@ static int assemble (int debug, const char *asm_name,
     return BABBLE_OK;
 }
 
-enum block_labels {
-    INC,
-    EQ,
-    REP,
-    SCOPE
-};
-
-typedef struct block {
-    size_t start, end;
-    int label;
-} block;
-
-typedef struct lexer_blocklist {
-    size_t nblocks;
-    size_t cap;
-    block *blocks;
-} blocklist;
-
-
-static int init_blist (blocklist *blist,
-    size_t cap=DEFAULT_NBLOCKS) {
-    assert (blocklist != NULL);
-    blist->nblocks = 0;
-    blist->cap = cap; 
-    blist->blocks = (block*) malloc (cap * sizeof (block));
-    if (blist->blocks == NULL) {
-        return BABBLE_MISC_ERR;
-    }
-}
-
-static int resize_blist (blocklist *blist) {
-    assert (blocks_handle != NULL);
-    blist->cap *= 2;
-    realloc (blist->blocks, blist->cap);
-    if (blist->blocks == NULL) {
-        return BABBLE_MISC_ERR;
-    }
-}
-
-static int push_blist (blocklist *blist,
-    size_t start, size_t end, int label) {
-    int ret = BABBLE_OK;
-    if (blist->nblocks == blist->cap) {
-        ret = resize_blocks (blist);
-        if (!ret) {
-            return ret;
-        }
-    }
-    blist->blocks[blist->cap] = { start, end, label };
-    blist->nblocks++;
-    return ret;
-}
-
-static int free_blist (blocklist *blist) {
-    free (blist->blocks);
-    memset (blist, 0x0, sizeof (blocklist));
-}
-
-static int lex (char *in_buf, size_t buf_size, blocklist *blist) {
-    // init_blocks (blocks_handle);
-    // Phase 1: Split by ';'
-    // Phase 2: Handle REP and SCOPE
-    // Phase 3: Label blocks
-    
-}
-
 int compile (int debug, const char *in_name,
     const char *out_name, char *msg) {
 
@@ -152,14 +88,14 @@ int compile (int debug, const char *in_name,
             in_name);
         return BABBLE_FILE_NOT_FOUND;
     }
-
+    int ret;
     char *in_buf;
-    size_t in_file_size;
+    size_t in_buf_size;
 
     fseek (in_file, 0L, SEEK_END);
-    in_file_size = ftell (in_file);
+    in_buf_size = ftell (in_file);
     rewind (in_file);
-    in_buf = (char*) malloc (in_file_size);
+    in_buf = (char*) malloc (in_buf_size);
 
     size_t at = 0;
     while (1) {
@@ -168,10 +104,37 @@ int compile (int debug, const char *in_name,
             break;
         }
         in_buf[at] = c;
+        at++;
     }
 
+    // Remove comments
+    size_t put = 0;
+    int comment = 0;
+    size_t skipped = 0;
+    for (size_t i = 0; i < in_buf_size; i++) {
+        if ((in_buf[i] == '\n') || (in_buf[i] == '\r')) {
+            comment = 0;
+        }
+        if (in_buf[i] == '%') {
+            comment = 1;
+        }
+        if (!comment) {
+            in_buf[put] = in_buf[i];
+            put++;
+        } else {
+            skipped++;
+        }
+    }
+    in_buf_size -= skipped;
+
+    // Coarse lexical and syntax processing
     blocklist blist;
-    lex (in_buf, &blist);
+    ret = lex (in_buf, in_buf_size, &blist, msg);
+
+    if (ret) {
+        fclose (in_file);
+        return ret;
+    }
 
     struct timeval ts;
     gettimeofday (&ts, NULL);
@@ -244,9 +207,9 @@ int compile (int debug, const char *in_name,
 
     fclose (in_file);
     fclose (out_file);
-
-    int ret = assemble (debug, asm_name, out_name, msg);
-    
+    #if 0
+    ret = assemble (debug, asm_name, out_name, msg);
+    #endif
     snprintf (cmd_buf, MSG_LEN, "rm -f %ld.asm", ts.tv_usec);
     system (cmd_buf);
     return ret;

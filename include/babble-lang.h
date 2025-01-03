@@ -2,7 +2,7 @@
 #define BABBLE_LANG_H
 
 #define BABBLE_VER_MAJOR 1
-#define BABBLE_VER_MINOR 0
+#define BABBLE_VER_MINOR 2
 
 #define BABBLE_OK               0
 #define BABBLE_EARLY_QUIT       1
