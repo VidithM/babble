@@ -123,7 +123,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             UNKNOWN);
     }
     
-    dbg_blist ("blist", blist);
+    // dbg_blist ("blist", blist);
 
     // Handle REP and SCOPE_OPEN, SCOPE_CLOSE; overwrite OG blist
     blocklist blist_phase2;
@@ -170,9 +170,10 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                 if (match_res == -1) { break; }
                 h2 = match_res;
 
-                // Must find a '{', else fail
-                match_res = find_next_pat (in_buf, match_res + 1, end, "{", 1);
+                // Next should be a '{', else fail
+                match_res = find_next (in_buf, match_res + 1, end);;
                 if (match_res == -1) { break; }
+                if (in_buf[match_res] != '{') { break; }
 
                 push_block (&blist_phase2,
                     start,
@@ -183,8 +184,8 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                 blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[1] = h2;
 
                 start = match_res + 1;
-            }
-            if (match (in_buf, start, end, "{", 1)) {
+                continue;
+            } else if (match (in_buf, start, end, "{", 1)) {
                 push_block (&blist_phase2,
                     start,
                     start,
@@ -192,8 +193,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                     SCOPE_OPEN);
                 start++;
                 continue;
-            }
-            if (match (in_buf, start, end, "}", 1)) {
+            } else if (match (in_buf, start, end, "}", 1)) {
                 push_block (&blist_phase2,
                     start,
                     start,
@@ -203,32 +203,70 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                 continue;
             }
         terminal:
-            if ((match_res = find_next_pat (in_buf, start, end, "=", 1)) != -1) {
-
+            if (in_buf[end] != ';') {
+                break;
             }
             if ((match_res = find_next_pat (in_buf, start, end, "+=", 2)) != -1) {
-
+                push_block (&blist_phase2,
+                    start,
+                    end,
+                    line,
+                    INC);
+                blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[0] = match_res;
+                start = end;
+            } else if ((match_res = find_next_pat (in_buf, start, end, "=", 1)) != -1) {
+                push_block (&blist_phase2,
+                    start,
+                    end,
+                    line,
+                    EQ);
+                blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[0] = match_res;
+                start = end;
+            } else if (match (in_buf, start, end, "print", 5)) {
+                // next should be a '('
+                size_t h1, h2;
+                match_res = find_next (in_buf, start + 5, end);
+                if (match_res == -1) { break; }
+                if (in_buf[match_res] != '(') { break; }
+                h1 = match_res;
+                // must find a ')'
+                match_res = find_next_pat (in_buf, match_res + 1, end, ")", 1);
+                if (match_res == -1) { break; }
+                h2 = match_res;
+                
+                push_block (&blist_phase2,
+                    start,
+                    end,
+                    line,
+                    PRINT);
+                blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[0] = h1;
+                blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[1] = h2;
+                start = match_res + 1;
+            } else {
+                break;
             }
-            if ((match_res = find_next_pat (in_buf, start, end, "print", 5)) != -1) {
-                // next should be a 
-            }
-            start = end;
         }
         if (start < end) {
-            push_block (&blist_phase2,
-                blist->blocks[i].start,
-                blist->blocks[i].end,
-                blist->blocks[i].start_line,
-                UNKNOWN);
+            snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d\n", line);
+            free_blist (&blist_phase2);
+            return BABBLE_COMPILE_ERR;
         }
-        dbg_blist ("blist (phase 2)", &blist_phase2);
     }
+    dbg_blist ("blist (phase 2)", &blist_phase2);
     // ...
     free_blist (blist);
     blist->blocks = blist_phase2.blocks;
     blist->nblocks = blist_phase2.nblocks;
     blist->cap = blist_phase2.cap;
 
-    // Label the blocks of blist
+    // Fine validation of blist:
+    // ensure arg formats are right (alphanumeric, cannot start with num)
+    for (size_t i = 0; i < blist->nblocks; i++) {
+        if (blist->blocks[i].label == INC || blist->blocks[i].label == EQ) {
 
+        }
+        if (blist->blocks[i].label == REP || blist->blocks[i].label == PRINT) {
+            
+        }
+    } 
 }
