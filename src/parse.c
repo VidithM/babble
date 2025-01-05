@@ -48,6 +48,10 @@ size_t find_prev (const char *buf, size_t start, size_t end) {
     return _find_prev (buf, start, end, 0);
 }
 
+size_t find_prev_space (const char *buf, size_t start, size_t end) {
+    return _find_prev (buf, start, end, 1);
+}
+
 size_t find_next_pat (const char *buf, size_t start, size_t end,
     const char *pat, size_t len) {
         
@@ -57,4 +61,36 @@ size_t find_next_pat (const char *buf, size_t start, size_t end,
         }
     }
     return -1;
+}
+
+static int is_alpha (char c) {
+    int ret = (c >= 'a' && c <= 'z');
+    c ^= 0x20;
+    ret = ret || (c >= 'a' && c <= 'z');
+    return ret;
+}
+
+static int is_digit (char c) {
+    return (c >= '0' && c <= '9');
+}
+
+int valid_symbol (const char *buf, size_t start, size_t end) {
+    if (!is_alpha (buf[start])) {
+        return 0;
+    }
+    for (size_t i = start + 1; i <= end; i++) {
+        if (!(is_alpha (buf[i]) || is_digit (buf[i]))) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int valid_literal (const char *buf, size_t start, size_t end) {
+    for (size_t i = start; i <= end; i++) {
+        if (!is_digit (buf[i])) {
+            return 0;
+        }
+    }
+    return 1;
 }

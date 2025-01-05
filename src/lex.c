@@ -128,19 +128,14 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
     // Handle REP and SCOPE_OPEN, SCOPE_CLOSE; overwrite OG blist
     blocklist blist_phase2;
     init_blist (&blist_phase2, blist->cap);
-    start = 0;
-    line = 1;
     for (size_t i = 0; i < blist->nblocks; i++) {
-        int changed = 0;
-        int failed = 0;
-        int line = blist->blocks[i].start_line;
-        size_t start = blist->blocks[i].start;
+        line = blist->blocks[i].start_line;
+        start = blist->blocks[i].start;
         size_t end = blist->blocks[i].end;
         size_t curr = start;
         while (1) {
             // jump to next non-space
-            size_t nxt = find_next (in_buf, start, blist->blocks[i].end);
-            start = nxt;
+            start = find_next (in_buf, start, blist->blocks[i].end);
             if (start >= end) {
                 break;
             }
@@ -252,7 +247,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             return BABBLE_COMPILE_ERR;
         }
     }
-    dbg_blist ("blist (phase 2)", &blist_phase2);
+    // dbg_blist ("blist (phase 2)", &blist_phase2);
     // ...
     free_blist (blist);
     blist->blocks = blist_phase2.blocks;
@@ -262,11 +257,73 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
     // Fine validation of blist:
     // ensure arg formats are right (alphanumeric, cannot start with num)
     for (size_t i = 0; i < blist->nblocks; i++) {
+        int failed = 0;
         if (blist->blocks[i].label == INC || blist->blocks[i].label == EQ) {
+            size_t start = blist->blocks[i].start;
+            size_t end = blist->blocks[i].end;
+            size_t h1 = blist->blocks[i].hotspots[0];
+            if (h1 == 0) {
+                failed = 1;
+                goto done;
+            }
+
+            size_t ltok_end = find_prev (in_buf, start, h1 - 1);
+            if (ltok_end == -1) {
+                failed = 1;
+                goto done;
+            }
+
+            blist->blocks[i].hotspots[0] = ltok_end;
+            size_t ltok_start = find_prev_space (in_buf, start, ltok_end);
+            if ((ltok_start != -1) && (ltok_start >= start)) {
+                failed = 1;
+                goto done;
+            }
+            if (!valid_symbol (in_buf, start, ltok_end)) {
+                failed = 1;
+                goto done;
+            }
+
+            size_t rtok_start = find_next (in_buf,
+                h1 + (blist->blocks[i].label == INC) + 1, end);
+
+            // cannot include ';'
+            if (rtok_start >= end) {
+                failed = 1;
+                goto done;
+            }
+
+            blist->blocks[i].hotspots[1] = rtok_start;
+            size_t rtok_end = find_next_space (in_buf, rtok_start, end);
+            if (rtok_end != -1) {
+                // next must only be ';'
+                if (find_next (in_buf, rtok_end, end) != end) {
+                    failed = 1;
+                    goto done;
+                }
+            } else {
+                rtok_end = end;
+            }
+            rtok_end--;
+            blist->blocks[i].hotspots[2] = rtok_end;
+
+            if (!(valid_symbol (in_buf, rtok_start, rtok_end) ||
+                valid_literal (in_buf, rtok_start, rtok_end))) {
+                failed = 1;
+                goto done;
+            }
 
         }
         if (blist->blocks[i].label == REP || blist->blocks[i].label == PRINT) {
-            
+
         }
-    } 
+    done:
+        if (failed) {
+            snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d\n",
+                blist->blocks[i].start_line);
+            return BABBLE_COMPILE_ERR;
+        }
+    }
+    dbg_blist ("blist", blist);
+    return BABBLE_OK;
 }
