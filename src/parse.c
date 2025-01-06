@@ -18,7 +18,7 @@ static size_t _find_next (const char *buf, size_t start,
     size_t end, int space) {
 
     for (size_t i = start; i <= end; i++) {
-        if (isspace (buf[i]) == space) {
+        if ((isspace (buf[i]) != 0) == space) {
             return i;
         }
     }
@@ -29,7 +29,7 @@ static size_t _find_prev (const char *buf, size_t start,
     size_t end, int space) {
 
     for (size_t i = end; i >= start; i--) {
-        if (isspace (buf[i]) == space) {
+        if ((isspace (buf[i]) != 0) == space) {
             return i;
         }
     }

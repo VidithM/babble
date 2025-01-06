@@ -228,7 +228,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                 match_res = find_next_pat (in_buf, match_res + 1, end, ")", 1);
                 if (match_res == -1) { break; }
                 h2 = match_res;
-                
+
                 push_block (&blist_phase2,
                     start,
                     end,
@@ -258,9 +258,9 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
     // ensure arg formats are right (alphanumeric, cannot start with num)
     for (size_t i = 0; i < blist->nblocks; i++) {
         int failed = 0;
+        size_t start = blist->blocks[i].start;
+        size_t end = blist->blocks[i].end;
         if (blist->blocks[i].label == INC || blist->blocks[i].label == EQ) {
-            size_t start = blist->blocks[i].start;
-            size_t end = blist->blocks[i].end;
             size_t h1 = blist->blocks[i].hotspots[0];
             if (h1 == 0) {
                 failed = 1;
@@ -274,11 +274,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             }
 
             blist->blocks[i].hotspots[0] = ltok_end;
-            size_t ltok_start = find_prev_space (in_buf, start, ltok_end);
-            if ((ltok_start != -1) && (ltok_start >= start)) {
-                failed = 1;
-                goto done;
-            }
+
             if (!valid_symbol (in_buf, start, ltok_end)) {
                 failed = 1;
                 goto done;
@@ -315,7 +311,22 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
 
         }
         if (blist->blocks[i].label == REP || blist->blocks[i].label == PRINT) {
+            size_t h1 = blist->blocks[i].hotspots[0];
+            size_t h2 = blist->blocks[i].hotspots[1];
+            size_t tok_start = find_next (in_buf, h1 + 1, h2 - 1);
+            size_t tok_end = find_prev (in_buf, h1 + 1, h2 - 1);
+            if ((tok_start == -1) || (tok_start > tok_end)) {
+                failed = 1;
+                goto done;
+            }
+            
+            blist->blocks[i].hotspots[0] = tok_start;
+            blist->blocks[i].hotspots[1] = tok_end;
+            if (!(valid_symbol (in_buf, tok_start, tok_end) ||
+                valid_literal (in_buf, tok_start, tok_end))) {
 
+                failed = 1;        
+            }
         }
     done:
         if (failed) {
@@ -324,6 +335,5 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             return BABBLE_COMPILE_ERR;
         }
     }
-    dbg_blist ("blist", blist);
     return BABBLE_OK;
 }

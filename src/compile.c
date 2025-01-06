@@ -127,14 +127,39 @@ int compile (int debug, const char *in_name,
     }
     in_buf_size -= skipped;
 
-    // Coarse lexical and syntax processing
+    // Lexical and syntax processing
     blocklist blist;
     ret = lex (in_buf, in_buf_size, &blist, msg);
 
     if (ret) {
+        free_blist (&blist);
         fclose (in_file);
         return ret;
     }
+
+    // Semantic processing and codegen
+    #if 0
+    Scope open:
+        (1). Push symstack
+        2. push rbp, rsp
+        3. rbp = rsp + 8
+        4. rsp = rbp
+    Scope close:
+        (1). Pop symstack
+        2. rsp = rbp
+        3. pop rsp
+        4. pop rbp
+    Eq:
+        (1). Check if sym exists in scope
+
+    Symstack:
+        - arr of char**
+        - trie of current symbols in scope
+            - trie node contains offset from rsp, value
+    #endif
+
+    //...
+    free_blist (&blist);
 
     struct timeval ts;
     gettimeofday (&ts, NULL);
@@ -150,60 +175,6 @@ int compile (int debug, const char *in_name,
 
     FILE *out_file = fopen (asm_name, "w");
     init (out_file);
-
-    #if 0
-    fprintf (out_file,
-        "mov rax, 0\n"
-        "push rax\n");
-    
-    char *temp;
-    int line = 1;
-    int comment = 0;
-    while (1) {
-        char c = fgetc (in_file);
-        if (feof (in_file)) {
-            break;
-        }
-        if (isspace (c) || comment) {
-            if (c == '\n' || c == '\r') {
-                line++;
-                comment = 0;
-            }
-            continue;
-        }
-        switch (c) {
-            case '+':
-                fprintf (out_file,
-                    "mov rax, [rsp]\n"
-                    "inc rax\n"
-                    "mov [rsp], rax\n");
-                break;
-            case '-':
-                fprintf (out_file,
-                    "mov rax, [rsp]\n"
-                    "dec rax\n"
-                    "mov [rsp], rax\n");
-                break;
-            case 'p':
-                {
-                    fprintf (out_file, "mov rdi, [rsp]\n");
-                    GET_INTRINSIC (&temp, "print_i64");
-                    assert (temp != NULL);
-                    fprintf (out_file, "%s", temp); 
-                }
-                break;
-            case '%':
-                comment = 1;
-                break;
-            default:
-                snprintf (msg, MSG_LEN, "Babble error: Compile error "
-                    "on line %d\n", line);
-                return BABBLE_COMPILE_ERR;
-        }
-    }
-    fprintf (out_file, "pop rax\n");
-    fprintf (out_file, "call _quit\n");
-    #endif
 
     fclose (in_file);
     fclose (out_file);
