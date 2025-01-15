@@ -32,7 +32,12 @@ static int parse_args (int argc, char **argv,
                 ok = 0;
                 break;
             }
-            printf ("Babble v%d.%d\n", BABBLE_VER_MAJOR, BABBLE_VER_MINOR);
+            char *dbg_ver = "";
+            #ifdef DEBUG
+            dbg_ver = " (debug build)";
+            #endif
+            printf ("Babble v%d.%d%s\n", BABBLE_VER_MAJOR,
+                BABBLE_VER_MINOR, dbg_ver);
             ret = BABBLE_EARLY_QUIT;
             break;
         } else if (!strcmp (argv[i], "--help")) {

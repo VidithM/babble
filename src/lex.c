@@ -247,7 +247,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             return BABBLE_COMPILE_ERR;
         }
     }
-    // dbg_blist ("blist (phase 2)", &blist_phase2);
+    dbg_blist ("blist (phase 2)", &blist_phase2);
     // ...
     free_blist (blist);
     blist->blocks = blist_phase2.blocks;

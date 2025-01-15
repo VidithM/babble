@@ -140,18 +140,41 @@ int compile (int debug, const char *in_name,
     // Semantic processing and codegen
     #if 0
     Scope open:
-        (1). Push symstack
+        (1). Push symstack w/ rep_id = -1
         2. push rbp, rsp
-        3. rbp = rsp + 8
-        4. rsp = rbp
+        3. rbp = rsp + 16
     Scope close:
-        (1). Pop symstack
-        2. rsp = rbp
-        3. pop rsp
-        4. pop rbp
+        (1). If rep_id != -1
+            1a. create label .loop_{rep_id}_break
+        (3). Pop symstack
+        4. rsp = rbp - 16
+        5. pop rsp
+        6. pop rbp
     Eq:
+        (1). Check if left sym exists in scope
+        (2). Check if right sym exists in scope, OR is literal
+        3. Get lsym location
+        4. ...
+    Inc:
+        Similar to above
+    Rep:
+        (1). Check if sym exists in scope, OR is literal
+        (2) Push symstack w/ rep_id
+        2. push rbp, rsp
+        3. rbp = rsp + 16
+        4. rax = rep amt
+        5. create label .loop_{rep_id}
+        6. Before loop body:
+            6a. cmp rax, 0
+            6b. jz .loop_{rep_id}_break
+        7. Gen loop body
+        8. dec rax
+    Print:
         (1). Check if sym exists in scope
-
+        2. Call intrinsic
+    
+    At end:
+        If symstack not at level 0, fail
     Symstack:
         - arr of char**
         - trie of current symbols in scope
@@ -160,7 +183,7 @@ int compile (int debug, const char *in_name,
 
     //...
     free_blist (&blist);
-
+    
     struct timeval ts;
     gettimeofday (&ts, NULL);
     char asm_name [MSG_LEN];
@@ -181,7 +204,9 @@ int compile (int debug, const char *in_name,
     #if 0
     ret = assemble (debug, asm_name, out_name, msg);
     #endif
+    #ifndef DEBUG
     snprintf (cmd_buf, MSG_LEN, "rm -f %ld.asm", ts.tv_usec);
     system (cmd_buf);
+    #endif
     return ret;
 }
