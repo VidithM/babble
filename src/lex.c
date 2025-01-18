@@ -2,7 +2,9 @@
 #include "parse.h"
 
 static int init_blist (blocklist *blist, size_t cap) {
-    assert (blist != NULL);
+    if (blist == NULL) {
+        return BABBLE_BAD_ARGS;
+    }
     blist->nblocks = 0;
     blist->cap = cap; 
     blist->blocks = (block*) malloc (cap * sizeof (block));
@@ -12,9 +14,11 @@ static int init_blist (blocklist *blist, size_t cap) {
 }
 
 static int resize_blist (blocklist *blist) {
-    assert (blist != NULL);
+    if (blist == NULL) {
+        return BABBLE_BAD_ARGS;
+    }
     blist->cap *= 2;
-    blist->blocks = realloc (blist->blocks, blist->cap);
+    blist->blocks = (block *) realloc (blist->blocks, blist->cap);
     if (blist->blocks == NULL) {
         return BABBLE_MISC_ERR;
     }

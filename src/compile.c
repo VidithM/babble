@@ -137,6 +137,8 @@ int compile (int debug, const char *in_name,
         return ret;
     }
 
+    
+
     // Semantic processing and codegen
     #if 0
     Scope open:

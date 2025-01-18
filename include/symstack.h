@@ -1,29 +1,34 @@
 #ifndef SYMSTACK_H
 #define SYMSTACK_H
 
+#include "babble-lang.h"
+
 #define NCHARS 36 // a-z, 0-9
 
 typedef struct symtrie {
     int present;
-    symtrie *kids [NCHARS];
+    struct symtrie *kids [NCHARS];
     size_t offset;
 } symtrie;
 
 typedef struct stack_entry {
     size_t rep_id;
-    char **symbols;
+    size_t nsymbols, cap;
+    const char **symbols;
 } stack_entry;
 
 typedef struct symstack {
+    size_t nscopes, cap;
     stack_entry *scopes;
     symtrie *trie;
 } symstack;
 
-void init_symstack ();
-void push_symstack_entry ();
-void pop_symstack_entry ();
-void insert_symbol (const char *symbol);
-int find_symbol (const char *symbol);
+int init_symstack (symstack *stk);
+void free_symstack (symstack *stk);
+int push_symstack_entry (symstack *stk, size_t rep_id);
+void pop_symstack_entry (symstack *stk);
+int insert_symbol (symstack *stk, const char *symbol);
+int find_symbol (symstack *stk, const char *symbol);
 
 
 #endif
