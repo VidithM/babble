@@ -15,6 +15,7 @@ typedef struct stack_entry {
     size_t rep_id;
     size_t nsymbols, cap;
     const char **symbols;
+    size_t *symbol_lens;
 } stack_entry;
 
 typedef struct symstack {
@@ -25,10 +26,11 @@ typedef struct symstack {
 
 int init_symstack (symstack *stk);
 void free_symstack (symstack *stk);
-int push_symstack_entry (symstack *stk, size_t rep_id);
-void pop_symstack_entry (symstack *stk);
-int insert_symbol (symstack *stk, const char *symbol);
-int find_symbol (symstack *stk, const char *symbol);
+int push_symstack_entry (symstack *stk, int rep_id);
+int pop_symstack_entry (symstack *stk);
+int insert_symbol (symstack *stk, const char *symbol, 
+    size_t len, size_t offset);
+int find_symbol (size_t *offset, symstack *stk, const char *symbol, size_t len);
 
 
 #endif

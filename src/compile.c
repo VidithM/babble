@@ -1,6 +1,7 @@
 #include "babble-lang.h"
 #include "parse.h"
 #include "lex.h"
+#include "symstack.h"
 #include "intrinsics.h"
 
 extern intrinsic_info intrinsics [2];
@@ -106,6 +107,7 @@ int compile (int debug, const char *in_name,
         in_buf[at] = c;
         at++;
     }
+    fclose (in_file);
 
     // Remove comments
     size_t put = 0;
@@ -133,7 +135,6 @@ int compile (int debug, const char *in_name,
 
     if (ret) {
         free_blist (&blist);
-        fclose (in_file);
         return ret;
     }
 
@@ -183,8 +184,56 @@ int compile (int debug, const char *in_name,
             - trie node contains offset from rsp, value
     #endif
 
-    //...
+    symstack stk;
+
+    ret = init_symstack (&stk);
+    if (ret) {
+        free_blist (&blist);
+        return ret;
+    }
+    int rep_id = 0;
+    for (size_t i = 0; i < blist.nblocks; i++) {
+        switch (blist.blocks[i].label) {
+            case SCOPE_OPEN:
+                {
+                    int ret = push_symstack_entry (&stk, -1);
+                    if (ret) { return ret; }
+                }
+                break;
+            case SCOPE_CLOSE:
+                {
+                    int ret = pop_symstack_entry (&stk);
+                    if (ret) {
+                        snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d"
+                            " (scope imbalance)\n", blist.blocks[i].start_line);
+                        return BABBLE_COMPILE_ERR;
+                    }
+                }
+                break;
+            case EQ:
+                break;
+            case INC:
+                break;
+            case REP:
+                {
+                    push_symstack_entry (&stk, rep_id);
+                }
+                break;
+            case PRINT:
+                break;
+        }
+    }
+    
+    if (stk.nscopes > 1) {
+        snprintf (msg, MSG_LEN, "Babble error: Compile error (scope imbalance)\n");
+        free_symstack (&stk);
+        free_blist (&blist);
+        return BABBLE_COMPILE_ERR;
+    }
+
+    free_symstack (&stk);
     free_blist (&blist);
+    free (in_buf);
     
     struct timeval ts;
     gettimeofday (&ts, NULL);
@@ -201,7 +250,6 @@ int compile (int debug, const char *in_name,
     FILE *out_file = fopen (asm_name, "w");
     init (out_file);
 
-    fclose (in_file);
     fclose (out_file);
     #if 0
     ret = assemble (debug, asm_name, out_name, msg);

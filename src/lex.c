@@ -18,7 +18,8 @@ static int resize_blist (blocklist *blist) {
         return BABBLE_BAD_ARGS;
     }
     blist->cap *= 2;
-    blist->blocks = (block *) realloc (blist->blocks, blist->cap);
+    blist->blocks = (block *) realloc (blist->blocks,
+        blist->cap * sizeof (block));
     if (blist->blocks == NULL) {
         return BABBLE_MISC_ERR;
     }
