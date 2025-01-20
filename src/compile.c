@@ -211,12 +211,32 @@ int compile (int debug, const char *in_name,
                 }
                 break;
             case EQ:
-                break;
+                {
+                    size_t start = blist.blocks[i].start;
+                    size_t h1 = blist.blocks[i].hotspots[0];
+                    size_t h2 = blist.blocks[i].hotspots[1];
+                    const char *sym = in_buf + start;
+                    size_t len = h1 - start + 1;
+                    size_t offset;
+                    int ret = find_symbol (&offset, &stk, sym, len);
+                    if (ret) {
+                        snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d\n",
+                            blist.blocks[i].start_line);
+                        return ret;
+                    }
+                    // TODO: codegen
+                    if (offset == -1) {
+                        // assign
+                        ret = insert_symbol (&stk, sym, len, /* dummy */ 0);
+                    } else {
+                        // set
+                    }
+                }
             case INC:
                 break;
             case REP:
                 {
-                    push_symstack_entry (&stk, rep_id);
+                    int ret = push_symstack_entry (&stk, rep_id);
                 }
                 break;
             case PRINT:

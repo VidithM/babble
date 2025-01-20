@@ -7,22 +7,22 @@ static size_t char_to_kid (char c) {
     return (c - '0' + 26);
 }
 
-static void free_symtrie (symtrie *trie) {
+static void free_symtrie (symtrie *node) {
     for (size_t i = 0; i < NCHARS; i++) {
-        if (trie->kids[i] != NULL) {
-            free_symtrie (trie->kids[i]);
+        if (node->kids[i] != NULL) {
+            free_symtrie (node->kids[i]);
         }
     }
-    free (trie);
+    free (node);
 }
 
 static int symtrie_insert (symtrie *node, const char *symbol,
     size_t len, size_t offset, size_t idx) {
 
-    if (node == NULL) {
+    if (node == NULL || symbol == NULL) {
         return 0;
     }
-    if (idx == len - 1) {
+    if (idx == len) {
         node->present = 1;
         node->offset = offset;
         return 1;
@@ -36,16 +36,16 @@ static int symtrie_insert (symtrie *node, const char *symbol,
         node->kids[nxt]->present = 0;
         memset (node->kids[nxt]->kids, 0x0, NCHARS * sizeof (symtrie *));
     }
-    symtrie_insert (node->kids[nxt], symbol, len, offset, idx + 1);
+    return symtrie_insert (node->kids[nxt], symbol, len, offset, idx + 1);
 }
 
 static int symtrie_remove (symtrie *node, const char *symbol,
     size_t len, size_t idx) {
     
-    if (node == NULL) {
+    if (node == NULL || symbol == NULL) {
         return 0;
     }
-    if (idx == len - 1) {
+    if (idx == len) {
         node->present = 0;
     } else {
         size_t nxt = char_to_kid (symbol[idx]);
@@ -66,6 +66,28 @@ static int symtrie_remove (symtrie *node, const char *symbol,
         return 1; // delete this node
     }
     return 0;
+}
+
+static int symtrie_find (size_t *offset, symtrie *node, const char *symbol,
+    size_t len, size_t idx) {
+        
+    if (node == NULL || symbol == NULL) {
+        return 0;
+    }
+    if (idx == len) {
+        if (!node->present) {
+            (*offset) = (size_t) -1;
+        } else {
+            (*offset) = node->offset;
+        }
+        return 1;
+    }
+    size_t nxt = char_to_kid (symbol[idx]);
+    if (node->kids[nxt] == NULL) {
+        (*offset) = (size_t) -1;
+        return 1;
+    }
+    return symtrie_find (offset, node->kids[nxt], symbol, len, idx + 1);
 }
 
 void free_symstack (symstack *stk) {
@@ -126,7 +148,7 @@ int push_symstack_entry (symstack *stk, int rep_id) {
 }
 
 int pop_symstack_entry (symstack *stk) {
-    if (stk == NULL || stk->nscopes == 1) {
+    if (stk == NULL || stk->nscopes <= 1) {
         return BABBLE_BAD_ARGS;
     }
     stack_entry *scope = &stk->scopes[stk->nscopes - 1];
@@ -176,5 +198,17 @@ int insert_symbol (symstack *stk, const char *symbol,
         return BABBLE_MISC_ERR;
     }
     scope->nsymbols++;
+    return BABBLE_OK;
+}
+
+int find_symbol (size_t *offset, symstack *stk, const char *symbol,
+    size_t len) {
+
+    if (stk == NULL || offset == NULL) {
+        return BABBLE_BAD_ARGS;
+    }
+    if (!symtrie_find (offset, stk->trie, symbol, len, 0)) {
+        return BABBLE_MISC_ERR;
+    }
     return BABBLE_OK;
 }
