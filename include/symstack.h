@@ -26,7 +26,7 @@ typedef struct symstack {
 
 int init_symstack (symstack *stk);
 void free_symstack (symstack *stk);
-int push_symstack_entry (symstack *stk, int rep_id);
+int push_symstack_entry (symstack *stk, size_t rep_id);
 int pop_symstack_entry (symstack *stk);
 int insert_symbol (symstack *stk, const char *symbol, 
     size_t len, size_t offset);

@@ -130,7 +130,6 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
     
     // dbg_blist ("blist", blist);
 
-    // Handle REP and SCOPE_OPEN, SCOPE_CLOSE; overwrite OG blist
     blocklist blist_phase2;
     init_blist (&blist_phase2, blist->cap);
     for (size_t i = 0; i < blist->nblocks; i++) {

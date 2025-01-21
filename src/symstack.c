@@ -84,7 +84,7 @@ static int symtrie_find (size_t *offset, symtrie *node, const char *symbol,
     }
     size_t nxt = char_to_kid (symbol[idx]);
     if (node->kids[nxt] == NULL) {
-        (*offset) = (size_t) -1;
+        (*offset) = -1;
         return 1;
     }
     return symtrie_find (offset, node->kids[nxt], symbol, len, idx + 1);
@@ -118,7 +118,7 @@ int init_symstack (symstack *stk) {
     return BABBLE_OK;
 }
 
-int push_symstack_entry (symstack *stk, int rep_id) {
+int push_symstack_entry (symstack *stk, size_t rep_id) {
     if (stk == NULL) {
         return BABBLE_BAD_ARGS;
     }
