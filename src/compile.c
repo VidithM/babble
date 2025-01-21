@@ -136,6 +136,8 @@ int compile (int debug, const char *in_name,
     blocklist blist;
     ret = lex (in_buf, in_buf_size, &blist, msg);
 
+    dbg_blist ("blist", &blist);
+
     if (ret) {
         free (in_buf);
         free_blist (&blist);
@@ -228,7 +230,7 @@ int compile (int debug, const char *in_name,
     for (size_t i = 0; i < blist.nblocks; i++) {
         size_t start, end;
         size_t hot[MAX_HOTSPOTS];
-        
+
         start = blist.blocks[i].start;
         end = blist.blocks[i].end;
 
@@ -236,7 +238,7 @@ int compile (int debug, const char *in_name,
             case SCOPE_OPEN:
                 {
                     ret = push_symstack_entry (&stk, -1);
-                    if (ret) { break; }
+                    if (ret) { goto done; }
                     fprintf (out_file,
                         "push rbp\n"
                         "mov rbp, rsp\n");
@@ -249,7 +251,7 @@ int compile (int debug, const char *in_name,
                         snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d"
                             " (scope imbalance)\n", blist.blocks[i].start_line);
                         ret = BABBLE_COMPILE_ERR;
-                        break;
+                        goto done;
                     }
                     fprintf (out_file,
                         "mov rsp, rbp\n"
@@ -260,21 +262,22 @@ int compile (int debug, const char *in_name,
                 {
                     hot[0] = blist.blocks[i].hotspots[0];
                     hot[1] = blist.blocks[i].hotspots[1];
+                    hot[2] = blist.blocks[i].hotspots[2];
                     
                     const char *lsym = in_buf + start;
                     char *rsym = in_buf + hot[1];
                     size_t l_len = hot[0] - start + 1;
-                    size_t r_len = end - hot[1];
+                    size_t r_len = hot[2] - hot[1] + 1;
                     size_t l_offset, r_offset;
 
                     ret = find_symbol (&l_offset, &stk, lsym, l_len);
                     if (ret) {
                         // Not a compile error
-                        break;
+                        goto done;
                     }
                     ret = find_symbol (&r_offset, &stk, rsym, r_len);
                     if (ret) {
-                        break;
+                        goto done;
                     }
                     int64_t rval;
                     if (r_offset == -1) {
@@ -286,7 +289,7 @@ int compile (int debug, const char *in_name,
                                 " (variable \"%s\" is undefined)\n", blist.blocks[i].start_line,
                                 rsym);
                             ret = BABBLE_COMPILE_ERR;
-                            break;
+                            goto done;
                         }
                         rval = atoll(rsym);
                         rsym[r_len] = tmp;
@@ -308,7 +311,7 @@ int compile (int debug, const char *in_name,
                         stk_size += 8;
                         ret = insert_symbol (&stk, lsym, l_len, stk_size);
                         if (ret) {
-                            break;
+                            goto done;
                         }
                     } else {
                         // set
@@ -319,18 +322,20 @@ int compile (int debug, const char *in_name,
             case REP:
                 {
                     ret = push_symstack_entry (&stk, rep_id);
-                    if (!ret) { break; }
+                    if (!ret) { goto done; }
                 }
                 break;
             case PRINT:
                 break;
         }
     }
+done:
     if ((!ret) && (stk.nscopes > 1)) {
         snprintf (msg, MSG_LEN, "Babble error: Compile error (scope imbalance)\n");
         ret = BABBLE_COMPILE_ERR;
     }
     fprintf (out_file,
+        "mov rsp, rbp\n"
         "pop rbp\n"
         "call _quit\n");
 
