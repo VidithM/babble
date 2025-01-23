@@ -16,6 +16,7 @@ typedef struct stack_entry {
     size_t nsymbols, cap;
     const char **symbols;
     size_t *symbol_lens;
+    size_t stk_size;
 } stack_entry;
 
 typedef struct symstack {

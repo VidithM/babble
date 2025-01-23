@@ -143,6 +143,7 @@ int push_symstack_entry (symstack *stk, size_t rep_id) {
     stk->scopes[stk->nscopes].nsymbols = 0;
     stk->scopes[stk->nscopes].symbols = NULL;
     stk->scopes[stk->nscopes].symbol_lens = NULL;
+    stk->scopes[stk->nscopes].stk_size = 0;
     stk->nscopes++;
     return BABBLE_OK;
 }

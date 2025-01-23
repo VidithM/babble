@@ -232,6 +232,10 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                 match_res = find_next_pat (in_buf, match_res + 1, end, ")", 1);
                 if (match_res == -1) { break; }
                 h2 = match_res;
+                // next must be ';'
+                match_res = find_next (in_buf, match_res + 1, end);
+                if (match_res == -1) { break; }
+                if (in_buf[match_res] != ';') { break; }
 
                 push_block (&blist_phase2,
                     start,
@@ -240,7 +244,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                     PRINT);
                 blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[0] = h1;
                 blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[1] = h2;
-                start = match_res + 1;
+                start = end;
             } else {
                 break;
             }

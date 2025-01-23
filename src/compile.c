@@ -235,6 +235,20 @@ int compile (int debug, const char *in_name,
         end = blist.blocks[i].end;
 
         switch (blist.blocks[i].label) {
+            #define LIT_CHECK(_sym, _len, _val)                                             \
+            {                                                                               \
+                char tmp = _sym[_len];                                                      \
+                _sym[_len] = '\0';                                                          \
+                if (!valid_literal (_sym, 0, _len - 1)) {                                   \
+                    snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d"        \
+                        " (variable \"%s\" is undefined)\n", blist.blocks[i].start_line,    \
+                        _sym);                                                              \
+                    ret = BABBLE_COMPILE_ERR;                                               \
+                    goto done;                                                              \
+                }                                                                           \
+                (*_val) = atoll(_sym);                                                      \
+                _sym[_len] = tmp;                                                           \
+            }
             case SCOPE_OPEN:
                 {
                     ret = push_symstack_entry (&stk, -1);
@@ -258,8 +272,10 @@ int compile (int debug, const char *in_name,
                         "pop rbp\n");
                 }
                 break;
+            case INC:
             case EQ:
                 {
+                    int is_inc = (blist.blocks[i].label == INC);
                     hot[0] = blist.blocks[i].hotspots[0];
                     hot[1] = blist.blocks[i].hotspots[1];
                     hot[2] = blist.blocks[i].hotspots[2];
@@ -276,25 +292,13 @@ int compile (int debug, const char *in_name,
                         goto done;
                     }
                     ret = find_symbol (&r_offset, &stk, rsym, r_len);
-                    if (ret) {
-                        goto done;
-                    }
+                    if (ret) { goto done; }
+
                     int64_t rval;
                     if (r_offset == -1) {
                         // rsym must be a literal
-                        char tmp = rsym[r_len];
-                        rsym[r_len] = '\0';
-                        if (!valid_literal (rsym, 0, r_len - 1)) {
-                            snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d"
-                                " (variable \"%s\" is undefined)\n", blist.blocks[i].start_line,
-                                rsym);
-                            ret = BABBLE_COMPILE_ERR;
-                            goto done;
-                        }
-                        rval = atoll(rsym);
-                        rsym[r_len] = tmp;
+                        LIT_CHECK (rsym, r_len, &rval);
                     }
-                    // TODO: codegen
                     if (l_offset == -1) {
                         // assign
                         if (r_offset == -1) {
@@ -304,7 +308,7 @@ int compile (int debug, const char *in_name,
                         } else {
                             fprintf (out_file,
                                 "mov r9, rbp\n"
-                                "sub r9, %ld"
+                                "sub r9, %ld\n"
                                 "mov r8, [r9]\n"
                                 "push r8\n", r_offset);    
                         }
@@ -315,17 +319,56 @@ int compile (int debug, const char *in_name,
                         }
                     } else {
                         // set
+                        if (r_offset == -1) {
+                            fprintf (out_file,
+                                "mov r8, %ld\n"
+                                "mov r9, rbp\n"
+                                "sub r9, %ld\n"
+                                "mov [r9], r8\n", rval, l_offset);
+                        } else {
+                            fprintf (out_file,
+                                "mov r9, rbp\n"
+                                "sub r9, %ld\n"
+                                "mov r8, [r9]\n"
+                                "mov r9, rbp\n"
+                                "sub r9, %ld\n"
+                                "mov [r9], r8\n", r_offset, l_offset);
+                        }
                     }
                 }
-            case INC:
                 break;
             case REP:
                 {
                     ret = push_symstack_entry (&stk, rep_id);
-                    if (!ret) { goto done; }
+                    if (ret) { goto done; }
+                    
                 }
                 break;
             case PRINT:
+                {
+                    hot[0] = blist.blocks[i].hotspots[0];
+                    hot[1] = blist.blocks[i].hotspots[1];
+                    char *sym = in_buf + hot[0];
+                    size_t len = hot[1] - hot[0] + 1;
+                    size_t offset;
+                    ret = find_symbol (&offset, &stk, sym, len);
+                    if (ret) { goto done; }
+
+                    int64_t val;
+                    if (offset == -1) {
+                        LIT_CHECK (sym, len, &val);
+                        fprintf (out_file,
+                            "mov rdi, %ld\n", val);
+                    } else {
+                        fprintf (out_file,
+                            "mov r9, rbp\n"
+                            "sub r9, %ld\n"
+                            "mov rdi, [r9]\n", offset);
+                    }
+                    char *tmp;
+                    GET_INTRINSIC (&tmp, "print_i64");
+                    fprintf (out_file, "%s", tmp);
+                }
                 break;
         }
     }
@@ -348,9 +391,9 @@ done:
         return ret;
     }
 
-    #if 0
+    // #if 0
     ret = assemble (debug, asm_name, out_name, msg);
-    #endif
+    // #endif
     #ifndef DEBUG
     snprintf (cmd_buf, MSG_LEN, "rm -f %ld.asm", ts.tv_usec);
     system (cmd_buf);
