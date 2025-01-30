@@ -63,7 +63,9 @@ intrinsic_info intrinsics [] = {
         .source = 
             "push rax\n"
             "push rdi\n"
+            "push rcx\n"
             "call _print_i64\n"
+            "pop rcx\n"
             "pop rdi\n"
             "pop rax\n",
         .impl = 0

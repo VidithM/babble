@@ -54,7 +54,7 @@ static int assemble (int debug, const char *asm_name,
     char cmd_buf [MSG_LEN];
     struct timeval ts;
     gettimeofday (&ts, NULL);
-    snprintf (cmd_buf, MSG_LEN, "nasm -o %ld.o -f elf64%s %s", ts.tv_usec,
+    snprintf (cmd_buf, MSG_LEN, "nasm -O0 -o %ld.o -f elf64%s %s", ts.tv_usec,
         (debug ? " -gdwarf" : ""), asm_name);
     
     int ret = system (cmd_buf);
@@ -136,7 +136,7 @@ int compile (int debug, const char *in_name,
     blocklist blist;
     ret = lex (in_buf, in_buf_size, &blist, msg);
 
-    dbg_blist ("blist", &blist);
+    // dbg_blist ("blist", &blist);
 
     if (ret) {
         free (in_buf);
@@ -148,33 +148,15 @@ int compile (int debug, const char *in_name,
 
     // Semantic processing and codegen
     #if 0
-    Scope open:
-        (1). Push symstack w/ rep_id = -1
-        2. push rbp, rsp
-        3. rbp = rsp + 16
-    Scope close:
-        (1). If rep_id != -1
-            1a. create label .loop_{rep_id}_break
-        (3). Pop symstack
-        4. rsp = rbp - 16
-        5. pop rsp
-        6. pop rbp
-    Eq:
-        (1). Check if left sym exists in scope
-        (2). Check if right sym exists in scope, OR is literal
-        3. Get lsym location
-        4. ...
-    Inc:
-        Similar to above
     Rep:
         (1). Check if sym exists in scope, OR is literal
         (2) Push symstack w/ rep_id
-        2. push rbp, rsp
-        3. rbp = rsp + 16
-        4. rax = rep amt
+        2. push rbp
+        3. mov rbp, rsp
+        4. rcx = rep amt
         5. create label .loop_{rep_id}
         6. Before loop body:
-            6a. cmp rax, 0
+            6a. cmp rcx, 0
             6b. jz .loop_{rep_id}_break
         7. Gen loop body
         8. dec rax
@@ -225,8 +207,8 @@ int compile (int debug, const char *in_name,
         "push rbp\n"
         "mov rbp, rsp\n");
 
-    size_t rep_id = 0;
-    size_t stk_size = 0; // TODO: This needs to go in stack_entry
+    size_t nxt_rep_id = 0;
+    size_t frame_size = 0;
     for (size_t i = 0; i < blist.nblocks; i++) {
         size_t start, end;
         size_t hot[MAX_HOTSPOTS];
@@ -235,41 +217,77 @@ int compile (int debug, const char *in_name,
         end = blist.blocks[i].end;
 
         switch (blist.blocks[i].label) {
+            #define SYM_NOT_FOUND(_sym, _len)                                           \
+            {                                                                           \
+                _sym[_len] = '\0';                                                      \
+                ret = BABBLE_COMPILE_ERR;                                               \
+                snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d"        \
+                    " (variable \"%s\" is undefined)\n", blist.blocks[i].start_line,    \
+                    _sym);                                                              \
+                goto done;                                                              \
+            }
             #define LIT_CHECK(_sym, _len, _val)                                             \
             {                                                                               \
+                if (!valid_literal (_sym, 0, _len - 1)) {                                   \
+                    SYM_NOT_FOUND (_sym, _len);                                             \
+                }                                                                           \
                 char tmp = _sym[_len];                                                      \
                 _sym[_len] = '\0';                                                          \
-                if (!valid_literal (_sym, 0, _len - 1)) {                                   \
-                    snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d"        \
-                        " (variable \"%s\" is undefined)\n", blist.blocks[i].start_line,    \
-                        _sym);                                                              \
-                    ret = BABBLE_COMPILE_ERR;                                               \
-                    goto done;                                                              \
-                }                                                                           \
                 (*_val) = atoll(_sym);                                                      \
                 _sym[_len] = tmp;                                                           \
             }
             case SCOPE_OPEN:
                 {
-                    ret = push_symstack_entry (&stk, -1);
+                    size_t curr_rep_id;
+                    get_curr_frame_rep_id (&curr_rep_id, &stk);
+
+                    if (curr_rep_id != -1) {
+                        fprintf (out_file,
+                            "push rcx");
+                        frame_size += 8;
+                    }
+
+                    ret = push_symstack_entry (&stk, -1, frame_size);
                     if (ret) { goto done; }
-                    fprintf (out_file,
-                        "push rbp\n"
-                        "mov rbp, rsp\n");
                 }
                 break;
             case SCOPE_CLOSE:
                 {
-                    int ret = pop_symstack_entry (&stk);
+                    size_t curr_rep_id;
+                    get_curr_frame_rep_id (&curr_rep_id, &stk);
+
+                    if (curr_rep_id != -1) {
+                        fprintf (out_file,
+                            "dec rcx\n"
+                            "jmp .loop_%ld_body\n"
+                            ".loop_%ld_break:\n", curr_rep_id, curr_rep_id);
+                    }
+
+                    ret = pop_symstack_entry (&stk);
                     if (ret) {
                         snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d"
                             " (scope imbalance)\n", blist.blocks[i].start_line);
                         ret = BABBLE_COMPILE_ERR;
                         goto done;
                     }
+
+                    size_t prev_rep_id;
+                    get_curr_frame_rep_id (&prev_rep_id, &stk);
+
+                    size_t frame_bottom;
+                    get_curr_frame_bottom (&frame_bottom, &stk);
+
+                    // TODO: Maintain prev rsp, num scopes in regs?
                     fprintf (out_file,
                         "mov rsp, rbp\n"
-                        "pop rbp\n");
+                        "sub rsp, %ld\n", frame_bottom);
+                    frame_size = frame_bottom;
+
+                    if (prev_rep_id != -1) {
+                        fprintf (out_file,
+                            "pop rcx\n");
+                        frame_size -= 8;
+                    }
                 }
                 break;
             case INC:
@@ -280,7 +298,7 @@ int compile (int debug, const char *in_name,
                     hot[1] = blist.blocks[i].hotspots[1];
                     hot[2] = blist.blocks[i].hotspots[2];
                     
-                    const char *lsym = in_buf + start;
+                    char *lsym = in_buf + start;
                     char *rsym = in_buf + hot[1];
                     size_t l_len = hot[0] - start + 1;
                     size_t r_len = hot[2] - hot[1] + 1;
@@ -300,6 +318,10 @@ int compile (int debug, const char *in_name,
                         LIT_CHECK (rsym, r_len, &rval);
                     }
                     if (l_offset == -1) {
+                        // lsym is known to be a non-literal
+                        if (is_inc) {
+                            SYM_NOT_FOUND (lsym, l_len);
+                        }
                         // assign
                         if (r_offset == -1) {
                             fprintf (out_file,
@@ -312,19 +334,18 @@ int compile (int debug, const char *in_name,
                                 "mov r8, [r9]\n"
                                 "push r8\n", r_offset);    
                         }
-                        stk_size += 8;
-                        ret = insert_symbol (&stk, lsym, l_len, stk_size);
-                        if (ret) {
-                            goto done;
-                        }
+                        frame_size += 8;
+                        ret = insert_symbol (&stk, lsym, l_len, frame_size);
+                        if (ret) { goto done; }
                     } else {
                         // set
+                        const char *upd_instr = (is_inc ? "add" : "mov");
                         if (r_offset == -1) {
                             fprintf (out_file,
                                 "mov r8, %ld\n"
                                 "mov r9, rbp\n"
                                 "sub r9, %ld\n"
-                                "mov [r9], r8\n", rval, l_offset);
+                                "%s [r9], r8\n", rval, l_offset, upd_instr);
                         } else {
                             fprintf (out_file,
                                 "mov r9, rbp\n"
@@ -332,16 +353,52 @@ int compile (int debug, const char *in_name,
                                 "mov r8, [r9]\n"
                                 "mov r9, rbp\n"
                                 "sub r9, %ld\n"
-                                "mov [r9], r8\n", r_offset, l_offset);
+                                "%s [r9], r8\n", r_offset, l_offset, upd_instr);
                         }
                     }
                 }
                 break;
             case REP:
                 {
-                    ret = push_symstack_entry (&stk, rep_id);
-                    if (ret) { goto done; }
+                    size_t curr_rep_id;
+                    get_curr_frame_rep_id (&curr_rep_id, &stk);
+                    if (curr_rep_id != -1) {
+                        fprintf (out_file,
+                            "push rcx\n");
+                        frame_size += 8;
+                    }
                     
+                    ret = push_symstack_entry (&stk, nxt_rep_id, frame_size);
+                    if (ret) { goto done; }
+
+                    hot[0] = blist.blocks[i].hotspots[0];
+                    hot[1] = blist.blocks[i].hotspots[1];
+
+                    char *sym = in_buf + hot[0];
+                    size_t len = hot[1] - hot[0] + 1;
+                    size_t offset;
+
+                    ret = find_symbol (&offset, &stk, sym, len);
+                    if (ret) { goto done; }
+
+                    int64_t val;
+                    if (offset == -1) {
+                        LIT_CHECK (sym, len, &val);
+                        fprintf (out_file,
+                            "mov rcx, %ld\n", val);
+                    } else {
+                        fprintf (out_file,
+                            "mov r9, rbp\n"
+                            "sub r9, %ld\n"
+                            "mov rcx, [r9]\n", offset);   
+                    }
+
+                    fprintf (out_file,
+                        ".loop_%ld_body:\n"
+                        "cmp rcx, 0\n"
+                        "jz .loop_%ld_break\n", nxt_rep_id, nxt_rep_id);
+                    
+                    nxt_rep_id++;
                 }
                 break;
             case PRINT:

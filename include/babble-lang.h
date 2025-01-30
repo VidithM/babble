@@ -28,4 +28,20 @@
 
 #include <sys/time.h>
 
+#ifdef DEBUG
+static void babble_assert_brkpt () {}   // For GDB
+#define BABBLE_ASSERT(_val)                                              \
+{                                                                        \
+    if (!(_val)) {                                                       \
+        fprintf (stderr, "[ERROR]: Assertion failed: %s, line %d\n",     \
+            __FILE__, __LINE__);                                         \
+        babble_assert_brkpt();                                           \
+        exit (-1);                                                       \
+    }                                                                    \
+}
+#define BABBLE_BRKPT babble_assert_brkpt()
+#else
+#define BABBLE_ASSERT
+#endif
+
 #endif
