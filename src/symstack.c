@@ -8,6 +8,8 @@ static size_t char_to_kid (char c) {
 }
 
 static void free_symtrie (symtrie *node) {
+    BABBLE_ASSERT (node != NULL);
+
     for (size_t i = 0; i < NCHARS; i++) {
         if (node->kids[i] != NULL) {
             free_symtrie (node->kids[i]);
@@ -18,10 +20,8 @@ static void free_symtrie (symtrie *node) {
 
 static int symtrie_insert (symtrie *node, const char *symbol,
     size_t len, size_t offset, size_t idx) {
+    BABBLE_ASSERT ((node != NULL) && (symbol != NULL));
 
-    if (node == NULL || symbol == NULL) {
-        return 0;
-    }
     if (idx == len) {
         node->present = 1;
         node->offset = offset;
@@ -31,7 +31,7 @@ static int symtrie_insert (symtrie *node, const char *symbol,
     if (node->kids[nxt] == NULL) {
         node->kids[nxt] = (symtrie *) malloc (sizeof (symtrie));
         if (node->kids[nxt] == NULL) {
-            return 0;
+            return BABBLE_MISC_ERR;
         }
         node->kids[nxt]->present = 0;
         memset (node->kids[nxt]->kids, 0x0, NCHARS * sizeof (symtrie *));
@@ -41,10 +41,8 @@ static int symtrie_insert (symtrie *node, const char *symbol,
 
 static int symtrie_remove (symtrie *node, const char *symbol,
     size_t len, size_t idx) {
-    
-    if (node == NULL || symbol == NULL) {
-        return 0;
-    }
+    BABBLE_ASSERT ((node != NULL) && (symbol != NULL));
+
     if (idx == len) {
         node->present = 0;
     } else {
@@ -68,32 +66,30 @@ static int symtrie_remove (symtrie *node, const char *symbol,
     return 0;
 }
 
-static int symtrie_find (size_t *offset, symtrie *node, const char *symbol,
+static void symtrie_find (size_t *offset, symtrie *node, const char *symbol,
     size_t len, size_t idx) {
-        
-    if (node == NULL || symbol == NULL) {
-        return 0;
-    }
+    BABBLE_ASSERT (node != NULL);
+    BABBLE_ASSERT (symbol != NULL);
+
     if (idx == len) {
         if (!node->present) {
             (*offset) = (size_t) -1;
         } else {
             (*offset) = node->offset;
         }
-        return 1;
+        return;
     }
     size_t nxt = char_to_kid (symbol[idx]);
     if (node->kids[nxt] == NULL) {
         (*offset) = -1;
-        return 1;
+        return;
     }
-    return symtrie_find (offset, node->kids[nxt], symbol, len, idx + 1);
+    symtrie_find (offset, node->kids[nxt], symbol, len, idx + 1);
 }
 
 void free_symstack (symstack *stk) {
-    if (stk == NULL) {
-        return;
-    }
+    BABBLE_ASSERT (stk != NULL);
+
     for (size_t i = 0; i < stk->nscopes; i++) {
         free (stk->scopes[i].symbols);
     }
@@ -102,9 +98,8 @@ void free_symstack (symstack *stk) {
 }
 
 int init_symstack (symstack *stk) {
-    if (stk == NULL) {
-        return BABBLE_BAD_ARGS;
-    }
+    BABBLE_ASSERT (stk != NULL);
+
     stk->nscopes = 0;
     stk->cap = 0;
     push_symstack_entry (stk, -1, 0);
@@ -202,16 +197,15 @@ int insert_symbol (symstack *stk, const char *symbol,
     return BABBLE_OK;
 }
 
-int find_symbol (size_t *offset, symstack *stk, const char *symbol,
+void find_symbol (size_t *offset, symstack *stk, const char *symbol,
     size_t len) {
 
     BABBLE_ASSERT (stk != NULL);
     BABBLE_ASSERT (offset != NULL);
+    BABBLE_ASSERT (symbol != NULL);
+    BABBLE_ASSERT (len > 0);
 
-    if (!symtrie_find (offset, stk->trie, symbol, len, 0)) {
-        return BABBLE_MISC_ERR;
-    }
-    return BABBLE_OK;
+    symtrie_find (offset, stk->trie, symbol, len, 0);
 }
 
 void get_curr_frame_bottom (size_t *frame_bottom, symstack *stk) {

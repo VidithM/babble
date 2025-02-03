@@ -31,7 +31,7 @@ int push_symstack_entry (symstack *stk, size_t rep_id, size_t curr_bottom);
 int pop_symstack_entry (symstack *stk);
 int insert_symbol (symstack *stk, const char *symbol, 
     size_t len, size_t offset);
-int find_symbol (size_t *offset, symstack *stk, const char *symbol, size_t len);
+void find_symbol (size_t *offset, symstack *stk, const char *symbol, size_t len);
 void get_curr_frame_bottom (size_t *frame_size, symstack *stk);
 void get_curr_frame_rep_id (size_t *rep_id, symstack *stk);
 

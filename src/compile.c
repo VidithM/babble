@@ -307,13 +307,8 @@ int compile (int debug, const char *in_name,
                     size_t r_len = hot[2] - hot[1] + 1;
                     size_t l_offset, r_offset;
 
-                    ret = find_symbol (&l_offset, &stk, lsym, l_len);
-                    if (ret) {
-                        // Not a compile error
-                        goto done;
-                    }
-                    ret = find_symbol (&r_offset, &stk, rsym, r_len);
-                    if (ret) { goto done; }
+                    find_symbol (&l_offset, &stk, lsym, l_len);
+                    find_symbol (&r_offset, &stk, rsym, r_len);
 
                     int64_t rval;
                     if (r_offset == -1) {
@@ -381,8 +376,7 @@ int compile (int debug, const char *in_name,
                     size_t len = hot[1] - hot[0] + 1;
                     size_t offset;
 
-                    ret = find_symbol (&offset, &stk, sym, len);
-                    if (ret) { goto done; }
+                    find_symbol (&offset, &stk, sym, len);
 
                     int64_t val;
                     if (offset == -1) {
@@ -411,8 +405,7 @@ int compile (int debug, const char *in_name,
                     char *sym = in_buf + hot[0];
                     size_t len = hot[1] - hot[0] + 1;
                     size_t offset;
-                    ret = find_symbol (&offset, &stk, sym, len);
-                    if (ret) { goto done; }
+                    find_symbol (&offset, &stk, sym, len);
 
                     int64_t val;
                     if (offset == -1) {
