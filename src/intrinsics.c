@@ -5,6 +5,8 @@ intrinsic_info intrinsics [] = {
         .symbol = "print_i64_impl",
         .source = 
             "_print_i64:\n"
+                "push rbp\n"
+                "mov rbp, rsp\n"
                 "; == Save the length count addr\n"
                 "push rax\n"
                 "mov r8, 0\n"
@@ -51,6 +53,7 @@ intrinsic_info intrinsics [] = {
                     "; == restore the stack\n"
                     "mov rsp, r8\n"
                     "pop rax\n"
+                    "pop rbp\n"
                     "ret\n"
                     "; ==\n",
             .impl = 1
@@ -60,7 +63,9 @@ intrinsic_info intrinsics [] = {
         .source = 
             "push rax\n"
             "push rdi\n"
+            "push rcx\n"
             "call _print_i64\n"
+            "pop rcx\n"
             "pop rdi\n"
             "pop rax\n",
         .impl = 0

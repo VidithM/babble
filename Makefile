@@ -8,7 +8,7 @@ BABBLE_SOURCES := $(wildcard ./src/*.c)
 all:
 	@gcc $(CFLAGS) -o $(BUILD_DIR)/babble -I$(INCLUDE_DIRS) $(BABBLE_SOURCES)
 	
-debug: CFLAGS += -g 
+debug: CFLAGS += -O0 -g -DDEBUG
 debug: all
 
 install:

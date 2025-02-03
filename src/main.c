@@ -32,7 +32,12 @@ static int parse_args (int argc, char **argv,
                 ok = 0;
                 break;
             }
-            printf ("Babble v%d.%d\n", BABBLE_VER_MAJOR, BABBLE_VER_MINOR);
+            char *dbg_ver = "";
+            #ifdef DEBUG
+            dbg_ver = " (debug build)";
+            #endif
+            printf ("Babble v%d.%d%s\n", BABBLE_VER_MAJOR,
+                BABBLE_VER_MINOR, dbg_ver);
             ret = BABBLE_EARLY_QUIT;
             break;
         } else if (!strcmp (argv[i], "--help")) {
@@ -79,7 +84,11 @@ int main (int argc, char **argv) {
     memset (msg, 0x0, MSG_LEN);
     ret = compile (debug, in_name, out_name, msg);
     if (ret) {
-        printf ("%s", msg);
+        if (ret == BABBLE_MISC_ERR) {
+            printf ("Babble error: Unknown error\n");
+        } else {
+            printf ("%s", msg);
+        }
     }
     return ret;
 }
