@@ -243,7 +243,7 @@ int compile (int debug, const char *in_name,
 
                     if (curr_rep_id != -1) {
                         fprintf (out_file,
-                            "push rcx");
+                            "push rcx\n");
                         frame_size += 8;
                     }
 
@@ -255,13 +255,6 @@ int compile (int debug, const char *in_name,
                 {
                     size_t curr_rep_id;
                     get_curr_frame_rep_id (&curr_rep_id, &stk);
-
-                    if (curr_rep_id != -1) {
-                        fprintf (out_file,
-                            "dec rcx\n"
-                            "jmp .loop_%ld_body\n"
-                            ".loop_%ld_break:\n", curr_rep_id, curr_rep_id);
-                    }
 
                     ret = pop_symstack_entry (&stk);
                     if (ret) {
@@ -277,11 +270,21 @@ int compile (int debug, const char *in_name,
                     size_t frame_bottom;
                     get_curr_frame_bottom (&frame_bottom, &stk);
 
+                    if (curr_rep_id != -1) {
+                        fprintf (out_file,
+                            "dec rcx\n");
+                    }
                     // TODO: Maintain prev rsp, num scopes in regs?
                     fprintf (out_file,
                         "mov rsp, rbp\n"
                         "sub rsp, %ld\n", frame_bottom);
                     frame_size = frame_bottom;
+
+                    if (curr_rep_id != -1) {
+                        fprintf (out_file,
+                            "jmp .loop_%ld_body\n"
+                            ".loop_%ld_break:\n", curr_rep_id, curr_rep_id);
+                    }
 
                     if (prev_rep_id != -1) {
                         fprintf (out_file,
