@@ -1,7 +1,7 @@
 #include "symstack.h"
 
 static size_t char_to_kid (char c) {
-    if (c <= 'z') {
+    if (c >= 'a' && c <= 'z') {
         return (c - 'a');
     }
     return (c - '0' + 26);

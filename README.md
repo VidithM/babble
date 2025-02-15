@@ -9,16 +9,30 @@ Babble supports a few gcc-like flags:
 e.g. `babble -g -o temp temp.bbl`
 
 **Language details**:
+
 Data types:
 * Babble currently only has 64-bit integers as the sole data type
 
 Control structures:
 * Only loops are available right now, used with the `rep` keyword. This is similar to a for-loop in other languages, except there is no condition evaluated each iteration. The loop is simply run for the specified number of iterations (e.g. `rep (4)` runs 4 times).
+
 Misc:
 * Scopes are supported
 
 **Example code**:
-Coming soon...
+
+```
+% This is a comment
+x = 4
+print (x);
+
+iter = 0;
+rep (x) {
+    % This loop will run 4 times. There is no conditional evaluation for each iteration.
+    print (iter);
+    iter += 1;
+}
+```
 
 ### Future plans:
 **v1.4**:
