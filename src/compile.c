@@ -144,34 +144,6 @@ int compile (int debug, const char *in_name,
         return ret;
     }
 
-    
-
-    // Semantic processing and codegen
-    #if 0
-    Rep:
-        (1). Check if sym exists in scope, OR is literal
-        (2) Push symstack w/ rep_id
-        2. push rbp
-        3. mov rbp, rsp
-        4. rcx = rep amt
-        5. create label .loop_{rep_id}
-        6. Before loop body:
-            6a. cmp rcx, 0
-            6b. jz .loop_{rep_id}_break
-        7. Gen loop body
-        8. dec rax
-    Print:
-        (1). Check if sym exists in scope
-        2. Call intrinsic
-    
-    At end:
-        If symstack not at level 0, fail
-    Symstack:
-        - arr of char**
-        - trie of current symbols in scope
-            - trie node contains offset from rsp, value
-    #endif
-
     symstack stk;
 
     ret = init_symstack (&stk);
