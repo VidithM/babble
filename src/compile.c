@@ -277,23 +277,24 @@ int compile (int debug, const char *in_name,
                     char *rsym = in_buf + hot[1];
                     size_t l_len = hot[0] - start + 1;
                     size_t r_len = hot[2] - hot[1] + 1;
-                    size_t l_offset, r_offset;
+                    symbol lsym_info, rsym_info;
 
-                    find_symbol (&l_offset, &stk, lsym, l_len);
-                    find_symbol (&r_offset, &stk, rsym, r_len);
+                    find_symbol (&lsym_info, &stk, lsym, l_len);
+                    find_symbol (&rsym_info, &stk, rsym, r_len);
 
                     int64_t rval;
-                    if (r_offset == -1) {
+                    // Every valid symbol has a name. A NULL name means the symbol does not exist.
+                    if (rsym_info.name == NULL) {
                         // rsym must be a literal
                         LIT_CHECK (rsym, r_len, &rval);
                     }
-                    if (l_offset == -1) {
+                    if (lsym_info.name == NULL) {
                         // lsym is known to be a non-literal
                         if (is_inc) {
                             SYM_NOT_FOUND (lsym, l_len);
                         }
                         // assign
-                        if (r_offset == -1) {
+                        if (rsym_info.name == NULL) {
                             fprintf (out_file,
                                 "mov r8, %ld\n"
                                 "push r8\n", rval);
@@ -302,20 +303,27 @@ int compile (int debug, const char *in_name,
                                 "mov r9, rbp\n"
                                 "sub r9, %ld\n"
                                 "mov r8, [r9]\n"
-                                "push r8\n", r_offset);    
+                                "push r8\n", rsym_info.offset);    
                         }
-                        frame_size += 8;
-                        ret = insert_symbol (&stk, lsym, l_len, frame_size);
+                        lsym_info.name = lsym;
+                        lsym_info.name_len = l_len;
+                        lsym_info.size = 8;
+                        lsym_info.offset = frame_size + 8;
+                        lsym_info.category = INT64;
+
+                        ret = insert_symbol (&stk, lsym_info);
+                        frame_size += lsym_info.size;
+
                         if (ret) { goto done; }
                     } else {
                         // set
                         const char *upd_instr = (is_inc ? "add" : "mov");
-                        if (r_offset == -1) {
+                        if (rsym_info.offset == -1) {
                             fprintf (out_file,
                                 "mov r8, %ld\n"
                                 "mov r9, rbp\n"
                                 "sub r9, %ld\n"
-                                "%s [r9], r8\n", rval, l_offset, upd_instr);
+                                "%s [r9], r8\n", rval, lsym_info.offset, upd_instr);
                         } else {
                             fprintf (out_file,
                                 "mov r9, rbp\n"
@@ -323,7 +331,7 @@ int compile (int debug, const char *in_name,
                                 "mov r8, [r9]\n"
                                 "mov r9, rbp\n"
                                 "sub r9, %ld\n"
-                                "%s [r9], r8\n", r_offset, l_offset, upd_instr);
+                                "%s [r9], r8\n", rsym_info.offset, lsym_info.offset, upd_instr);
                         }
                     }
                 }
@@ -346,12 +354,12 @@ int compile (int debug, const char *in_name,
 
                     char *sym = in_buf + hot[0];
                     size_t len = hot[1] - hot[0] + 1;
-                    size_t offset;
+                    symbol sym_info;
 
-                    find_symbol (&offset, &stk, sym, len);
+                    find_symbol (&sym_info, &stk, sym, len);
 
                     int64_t val;
-                    if (offset == -1) {
+                    if (sym_info.offset == -1) {
                         LIT_CHECK (sym, len, &val);
                         fprintf (out_file,
                             "mov rcx, %ld\n", val);
@@ -359,7 +367,7 @@ int compile (int debug, const char *in_name,
                         fprintf (out_file,
                             "mov r9, rbp\n"
                             "sub r9, %ld\n"
-                            "mov rcx, [r9]\n", offset);   
+                            "mov rcx, [r9]\n", sym_info.offset);   
                     }
 
                     fprintf (out_file,
@@ -376,11 +384,11 @@ int compile (int debug, const char *in_name,
                     hot[1] = blist.blocks[i].hotspots[1];
                     char *sym = in_buf + hot[0];
                     size_t len = hot[1] - hot[0] + 1;
-                    size_t offset;
-                    find_symbol (&offset, &stk, sym, len);
+                    symbol sym_info;
+                    find_symbol (&sym_info, &stk, sym, len);
 
                     int64_t val;
-                    if (offset == -1) {
+                    if (sym_info.offset == -1) {
                         LIT_CHECK (sym, len, &val);
                         fprintf (out_file,
                             "mov rdi, %ld\n", val);
@@ -388,7 +396,7 @@ int compile (int debug, const char *in_name,
                         fprintf (out_file,
                             "mov r9, rbp\n"
                             "sub r9, %ld\n"
-                            "mov rdi, [r9]\n", offset);
+                            "mov rdi, [r9]\n", sym_info.offset);
                     }
                     char *tmp;
                     GET_INTRINSIC (&tmp, "print_i64");

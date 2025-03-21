@@ -144,10 +144,9 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                 break;
             }
 
-            if (curr < start) {
+            while (curr < start) {
                 line += (in_buf[curr] == '\r' || in_buf[curr] == '\n');
                 curr++;
-                continue;
             }
             // try to consume a block
             // =, +=, print are terminal blocks (must end with ;)
