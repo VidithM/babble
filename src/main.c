@@ -36,8 +36,8 @@ static int parse_args (int argc, char **argv,
             #ifdef DEBUG
             dbg_ver = " (debug build)";
             #endif
-            printf ("Babble v%d.%d%s\n", BABBLE_VER_MAJOR,
-                BABBLE_VER_MINOR, dbg_ver);
+            printf ("Babble v%d.%d%s\nBuild date: %s %s\n", BABBLE_VER_MAJOR,
+                BABBLE_VER_MINOR, dbg_ver, BUILD_DATE, BUILD_TIME);
             ret = BABBLE_EARLY_QUIT;
             break;
         } else if (!strcmp (argv[i], "--help")) {

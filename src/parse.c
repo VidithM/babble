@@ -86,11 +86,19 @@ int valid_symbol (const char *buf, size_t start, size_t end) {
     return 1;
 }
 
-int valid_literal (const char *buf, size_t start, size_t end) {
+int valid_integral (const char *buf, size_t start, size_t end) {
     for (size_t i = start; i <= end; i++) {
         if (!is_digit (buf[i])) {
             return 0;
         }
+    }
+    return 1;
+}
+
+int valid_expr (const char *buf, size_t start, size_t end) {
+    const int EXPR_LEN = strlen("expr(");
+    if (end - start + 1 < EXPR_LEN) {
+        return 0;
     }
     return 1;
 }

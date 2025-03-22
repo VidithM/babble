@@ -200,7 +200,9 @@ int compile (int debug, const char *in_name,
             }
             #define LIT_CHECK(_sym, _len, _val)                                             \
             {                                                                               \
-                if (!valid_literal (_sym, 0, _len - 1)) {                                   \
+                if (!(valid_integral (_sym, 0, _len - 1) ||                                 \
+                    valid_expr (_sym, 0, _len - 1))) {                                      \
+                                                                                            \
                     SYM_NOT_FOUND (_sym, _len);                                             \
                 }                                                                           \
                 char tmp = _sym[_len];                                                      \

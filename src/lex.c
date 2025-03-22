@@ -267,6 +267,12 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
         size_t start = blist->blocks[i].start;
         size_t end = blist->blocks[i].end;
         if (blist->blocks[i].label == INC || blist->blocks[i].label == EQ) {
+            #if 0
+            For strings:
+                -  Change valid_symbol/valid_literal check for rtok to include
+                   expr
+            #endif
+
             size_t h1 = blist->blocks[i].hotspots[0];
             if (h1 == 0) {
                 failed = 1;
@@ -310,7 +316,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             blist->blocks[i].hotspots[2] = rtok_end;
 
             if (!(valid_symbol (in_buf, rtok_start, rtok_end) ||
-                valid_literal (in_buf, rtok_start, rtok_end))) {
+                valid_integral (in_buf, rtok_start, rtok_end))) {
                 failed = 1;
                 goto done;
             }
@@ -329,7 +335,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             blist->blocks[i].hotspots[0] = tok_start;
             blist->blocks[i].hotspots[1] = tok_end;
             if (!(valid_symbol (in_buf, tok_start, tok_end) ||
-                valid_literal (in_buf, tok_start, tok_end))) {
+                valid_integral (in_buf, tok_start, tok_end))) {
 
                 failed = 1;        
             }
