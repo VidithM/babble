@@ -49,7 +49,7 @@ static int symtrie_remove (symtrie_opaque *node, symbol sym, size_t idx) {
     } else {
         size_t nxt = char_to_kid (sym.name[idx]);
         if (node->kids[nxt] != NULL) {
-            int del = symtrie_remove (node->kids[nxt], sym, idx);
+            int del = symtrie_remove (node->kids[nxt], sym, idx + 1);
             if (del) {
                 free (node->kids[nxt]);
                 node->kids[nxt] = NULL;

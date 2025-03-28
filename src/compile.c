@@ -320,7 +320,7 @@ int compile (int debug, const char *in_name,
                     } else {
                         // set
                         const char *upd_instr = (is_inc ? "add" : "mov");
-                        if (rsym_info.offset == -1) {
+                        if (rsym_info.name == NULL) {
                             fprintf (out_file,
                                 "mov r8, %ld\n"
                                 "mov r9, rbp\n"
@@ -361,7 +361,7 @@ int compile (int debug, const char *in_name,
                     find_symbol (&sym_info, &stk, sym, len);
 
                     int64_t val;
-                    if (sym_info.offset == -1) {
+                    if (sym_info.name == NULL) {
                         LIT_CHECK (sym, len, &val);
                         fprintf (out_file,
                             "mov rcx, %ld\n", val);
@@ -390,7 +390,7 @@ int compile (int debug, const char *in_name,
                     find_symbol (&sym_info, &stk, sym, len);
 
                     int64_t val;
-                    if (sym_info.offset == -1) {
+                    if (sym_info.name == NULL) {
                         LIT_CHECK (sym, len, &val);
                         fprintf (out_file,
                             "mov rdi, %ld\n", val);
