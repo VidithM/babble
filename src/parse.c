@@ -96,9 +96,63 @@ int valid_integral (const char *buf, size_t start, size_t end) {
 }
 
 int valid_expr (const char *buf, size_t start, size_t end) {
-    const int EXPR_LEN = strlen("expr(");
-    if (end - start + 1 < EXPR_LEN) {
+    #include "lex.h"
+    size_t dummy[MAX_HOTSPOTS];
+    return valid_expr_full (buf, start, end, dummy, (int *) dummy);
+}
+
+int valid_expr_full (const char *buf, size_t start, size_t end,
+    size_t *hotspots, int *expr_type) {
+    
+    size_t at = start;
+
+    if (!match (buf, at, end, "expr", 4)) {
         return 0;
     }
+    at += 4;
+
+    at = find_next_pat (buf, at, end, "(", 1);
+    if (at == -1) { return 0; }
+    at++;
+
+    at = find_next (buf, at, end);
+    if (at == -1) { return 0; }
+
+    int type;
+    // TODO: Match against more expr types
+    if (match (buf, at, end, "str", 3)) {
+        type = 0;
+    } else {
+        // Invalid type
+        return 0;
+    }
+    hotspots[0] = at;
+
+    BABBLE_ASSERT (type >= 0 && type <= 0);
+    // TODO: Match against more expr types
+    if (type == 0) {
+        at += 3;
+    }
+
+    at = find_next_pat (buf, at, end, ",", 1);
+    if (at == -1) { return 0; }
+    at++;
+    // TODO ...
+    if (type == 0) {
+        at = find_next (buf, at, end);
+        if ((at == -1) || (buf[at] != '\"')) { return 0; }
+        hotspots[1] = at + 1;
+        at++;
+        at = find_next_pat (buf, at, end, "\"", 1);
+        if (at == -1) { return 0; }
+        hotspots[2] = at - 1;
+        at++;
+    }
+
+    at = find_next_pat (buf, at, end, ")", 1);
+    if (at == -1) { return 0; }
+
+    (*expr_type) = type;
+
     return 1;
 }

@@ -2,27 +2,29 @@
 #include "parse.h"
 
 static int init_blist (blocklist *blist, size_t cap) {
-    if (blist == NULL) {
-        return BABBLE_BAD_ARGS;
-    }
+
+    BABBLE_ASSERT (blist != NULL);
+
     blist->nblocks = 0;
     blist->cap = cap; 
     blist->blocks = (block*) malloc (cap * sizeof (block));
     if (blist->blocks == NULL) {
         return BABBLE_MISC_ERR;
     }
+    return BABBLE_OK;
 }
 
 static int resize_blist (blocklist *blist) {
-    if (blist == NULL) {
-        return BABBLE_BAD_ARGS;
-    }
+
+    BABBLE_ASSERT (blist != NULL);
+
     blist->cap *= 2;
     blist->blocks = (block *) realloc (blist->blocks,
         blist->cap * sizeof (block));
     if (blist->blocks == NULL) {
         return BABBLE_MISC_ERR;
     }
+    return BABBLE_OK;
 }
 
 static int push_block (blocklist *blist,
@@ -30,6 +32,8 @@ static int push_block (blocklist *blist,
     int start_line,
     enum block_label label) {
 
+    BABBLE_ASSERT (blist != NULL);
+    
     int ret = BABBLE_OK;
     if (blist->nblocks == blist->cap) {
         ret = resize_blist (blist);
@@ -106,14 +110,23 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
     // Phase 1: Split by ';'
     // Phase 2: Handle REP and SCOPE
     // Phase 3: Label blocks
-    init_blist (blist, DEFAULT_CAP);
+    int ret = BABBLE_OK;
+    blocklist blist_phase2;
+    memset (&blist_phase2, 0x0, sizeof (blocklist));
+
+    if (init_blist (blist, DEFAULT_CAP)) {
+        return BABBLE_MISC_ERR;
+    }
+
     size_t start = 0;
     int start_line = 1;
     int line = 1;
     for (size_t i = 0; i < buf_size; i++) {
         if (in_buf[i] == ';') {
-            push_block (blist, start, i, start_line,
-                UNKNOWN);
+            if (push_block (blist, start, i, start_line, UNKNOWN)) {
+                ret = BABBLE_MISC_ERR;
+                goto done;
+            }
             start = i + 1;
             start_line = line;
         }
@@ -124,14 +137,19 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
 
     if (start < buf_size) {
         // implicit ';' at the end
-        push_block (blist, start, buf_size, start_line,
-            UNKNOWN);
+        if (push_block (blist, start, buf_size, start_line, UNKNOWN)) {
+            ret = BABBLE_MISC_ERR;
+            goto done;
+        }
     }
     
-    // dbg_blist ("blist", blist);
+    dbg_blist ("blist", blist);
 
-    blocklist blist_phase2;
-    init_blist (&blist_phase2, blist->cap);
+    if (init_blist (&blist_phase2, blist->cap)) {
+        ret = BABBLE_MISC_ERR;
+        goto done;
+    }
+
     for (size_t i = 0; i < blist->nblocks; i++) {
         line = blist->blocks[i].start_line;
         start = blist->blocks[i].start;
@@ -250,15 +268,17 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
         }
         if (start < end) {
             snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d\n", line);
-            free_blist (&blist_phase2);
-            return BABBLE_COMPILE_ERR;
+            ret = BABBLE_COMPILE_ERR;
+            goto done;
         }
     }
-    // ...
+
     free_blist (blist);
     blist->blocks = blist_phase2.blocks;
     blist->nblocks = blist_phase2.nblocks;
     blist->cap = blist_phase2.cap;
+
+    blist_phase2.blocks = NULL;
 
     // Fine validation of blist:
     // ensure arg formats are right (alphanumeric, cannot start with num)
@@ -276,20 +296,20 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             size_t h1 = blist->blocks[i].hotspots[0];
             if (h1 == 0) {
                 failed = 1;
-                goto done;
+                goto fail;
             }
 
             size_t ltok_end = find_prev (in_buf, start, h1 - 1);
             if (ltok_end == -1) {
                 failed = 1;
-                goto done;
+                goto fail;
             }
 
             blist->blocks[i].hotspots[0] = ltok_end;
 
             if (!valid_symbol (in_buf, start, ltok_end)) {
                 failed = 1;
-                goto done;
+                goto fail;
             }
 
             size_t rtok_start = find_next (in_buf,
@@ -298,27 +318,38 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             // cannot include ';'
             if (rtok_start >= end) {
                 failed = 1;
-                goto done;
+                goto fail;
+            }
+            blist->blocks[i].hotspots[1] = rtok_start;
+
+            size_t rtok_end = end;
+            rtok_end = find_prev (in_buf, rtok_start, end - 1);
+            if (rtok_end == -1) {
+                failed = 1;
+                goto fail;
             }
 
-            blist->blocks[i].hotspots[1] = rtok_start;
-            size_t rtok_end = find_next_space (in_buf, rtok_start, end);
-            if (rtok_end != -1) {
-                // next must only be ';'
-                if (find_next (in_buf, rtok_end, end) != end) {
-                    failed = 1;
-                    goto done;
-                }
-            } else {
-                rtok_end = end;
-            }
-            rtok_end--;
-            blist->blocks[i].hotspots[2] = rtok_end;
+            int block_label_offset = 0;
+            int is_expr = valid_expr_full (in_buf, rtok_start, rtok_end, blist->blocks[i].hotspots + 2,
+                &block_label_offset);
 
             if (!(valid_symbol (in_buf, rtok_start, rtok_end) ||
-                valid_integral (in_buf, rtok_start, rtok_end))) {
+                valid_integral (in_buf, rtok_start, rtok_end) ||
+                is_expr)) {
+
                 failed = 1;
-                goto done;
+                goto fail;
+            }
+
+            // Refine the block label
+            if (is_expr) {
+                // TODO: Update to include more expr types
+                printf ("Got an expr! %ld, %ld, %ld\n", blist->blocks[i].hotspots[2], blist->blocks[i].hotspots[3],
+                    blist->blocks[i].hotspots[4]);
+                BABBLE_ASSERT (block_label_offset == 0);
+                blist->blocks[i].label += (block_label_offset + 1);
+            } else {
+                blist->blocks[i].hotspots[2] = rtok_end;
             }
 
         }
@@ -329,7 +360,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             size_t tok_end = find_prev (in_buf, h1 + 1, h2 - 1);
             if ((tok_start == -1) || (tok_start > tok_end)) {
                 failed = 1;
-                goto done;
+                goto fail;
             }
             
             blist->blocks[i].hotspots[0] = tok_start;
@@ -337,15 +368,21 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             if (!(valid_symbol (in_buf, tok_start, tok_end) ||
                 valid_integral (in_buf, tok_start, tok_end))) {
 
-                failed = 1;        
+                failed = 1;
             }
         }
-    done:
+    fail:
         if (failed) {
             snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d\n",
                 blist->blocks[i].start_line);
-            return BABBLE_COMPILE_ERR;
+            ret = BABBLE_COMPILE_ERR;
+            goto done;
         }
     }
-    return BABBLE_OK;
+done:
+    if (ret != BABBLE_OK) {
+        free_blist (blist);
+    }
+    free_blist (&blist_phase2);
+    return ret;
 }

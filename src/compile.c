@@ -140,7 +140,6 @@ int compile (int debug, const char *in_name,
 
     if (ret) {
         free (in_buf);
-        free_blist (&blist);
         return ret;
     }
 
