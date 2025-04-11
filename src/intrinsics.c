@@ -1,14 +1,13 @@
+#include "babble-lang.h"
 #include "intrinsics.h"
 
-intrinsic_info intrinsics [] = {
+const intrinsic_info intrinsics [] = {
     {
         .symbol = "print_i64_impl",
         .source = 
             "_print_i64:\n"
-                "push rbp\n"
-                "mov rbp, rsp\n"
                 "; == Save the length count addr\n"
-                "push rax\n"
+                "push r8\n"
                 "mov r8, 0\n"
                 "mov [rsp], r8\n"
                 "mov r8, rsp\n"
@@ -52,11 +51,31 @@ intrinsic_info intrinsics [] = {
 
                     "; == restore the stack\n"
                     "mov rsp, r8\n"
-                    "pop rax\n"
-                    "pop rbp\n"
+                    "pop r8\n"
                     "ret\n"
                     "; ==\n",
             .impl = 1
+    },
+    {
+        .symbol = "print_str_impl",
+        .source =
+            "_print_str:\n"
+                "mov r8, 0\n"
+                "mov rcx, rdi\n"
+                ".print_str_loop:\n"
+                    "mov r11, [rcx]\n"
+                    "cmp r11, 0x0\n"
+                    "jz .print_str_return\n"
+                    "inc r8\n"
+                    "jmp .print_str_loop\n"
+                ".print_str_return:\n"
+                    "mov rdi, 1\n"
+                    "mov rsi, rdi\n"
+                    "mov rdx, r8\n"
+                    "mov rax, 1\n"
+                    "syscall\n"
+                    "ret\n",
+        .impl = 1
     },
     {
         .symbol = "print_i64",
@@ -69,5 +88,19 @@ intrinsic_info intrinsics [] = {
             "pop rdi\n"
             "pop rax\n",
         .impl = 0
+    },
+    {
+        .symbol = "print_str",
+        .source = 
+            "push rax\n"
+            "push rdi\n"
+            "push rcx\n"
+            "call _print_str\n"
+            "pop rcx\n"
+            "pop rdi\n"
+            "pop rax\n",
+        .impl = 0
     }
 };
+
+const size_t N_INTRINSICS = 4;

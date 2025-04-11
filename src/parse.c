@@ -95,14 +95,14 @@ int valid_integral (const char *buf, size_t start, size_t end) {
     return 1;
 }
 
-int valid_expr (const char *buf, size_t start, size_t end) {
+int valid_expr (const char *buf, size_t start, size_t end, int terminal) {
     #include "lex.h"
     size_t dummy[MAX_HOTSPOTS];
-    return valid_expr_full (buf, start, end, dummy, (int *) dummy);
+    return valid_expr_full (buf, start, end, terminal, dummy, (int *) dummy);
 }
 
 int valid_expr_full (const char *buf, size_t start, size_t end,
-    size_t *hotspots, int *expr_type) {
+    int terminal, size_t *hotspots, int *expr_type) {
     
     size_t at = start;
 
@@ -151,8 +151,16 @@ int valid_expr_full (const char *buf, size_t start, size_t end,
 
     at = find_next_pat (buf, at, end, ")", 1);
     if (at == -1) { return 0; }
+    at++;
 
+    if (terminal) {
+        // Ensure expr ends with ';'. This is not needed for integral/sym checks
+        // because this is implied by them being a contiguous sequence of characters
+        at = find_next (buf, at, end);
+        if (at == -1) { return 0; }
+        if (buf[at] != ';') { return 0; }
+    }
+    
     (*expr_type) = type;
-
     return 1;
 }

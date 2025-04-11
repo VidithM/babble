@@ -22,8 +22,6 @@ typedef struct symbol {
 typedef struct stack_entry {
     size_t rep_id;
     size_t nsymbols, cap;
-    // const char **symbols;
-    // size_t *symbol_lens;
     symbol *symbols;
     size_t frame_bottom;
 } stack_entry;

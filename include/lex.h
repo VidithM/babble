@@ -32,7 +32,7 @@ typedef struct lexer_blocklist {
     block *blocks;
 } blocklist;
 
-void dbg_blist (const char *name, blocklist *blist);
+void dbg_blist (const char *name, blocklist blist);
 void free_blist (blocklist *blist);
 int lex (char *in_buf, size_t buf_size, blocklist *blist,
     char *msg);

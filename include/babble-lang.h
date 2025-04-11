@@ -15,6 +15,10 @@
 #define BABBLE_LINKER_ERR        -6
 #define BABBLE_MISC_ERR          -7
 
+#if (__STDC_VERSION__ < 200000)
+#error "Babble source requires at least C11"
+#endif
+
 // Constants
 #define MSG_LEN 1024
 
@@ -28,6 +32,20 @@
 
 #include <sys/time.h>
 
+#define BABBLE_MSG(...) snprintf (msg, MSG_LEN, __VA_ARGS__);
+#define BABBLE_MSG_COMPILE_ERR(line, ...)                                           \
+{                                                                                   \
+    if (line == -1) {                                                               \
+        snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d ", line);   \
+    } else {                                                                        \
+        snprintf (msg, MSG_LEN, "Babble error: Compile error");                     \
+    }                                                                               \
+    size_t len = strlen (msg);                                                      \
+    snprintf (msg + len, MSG_LEN - len, __VA_ARGS__);                               \
+}
+
+#define BABBLE_STATIC_ASSERT(_val) _Static_assert (_val, "\n");
+
 #ifdef DEBUG
 static void babble_assert_brkpt () {}   // For GDB
 #define BABBLE_ASSERT(_val)                                              \
@@ -39,9 +57,12 @@ static void babble_assert_brkpt () {}   // For GDB
         exit (-1);                                                       \
     }                                                                    \
 }
+#define BABBLE_ASSERT_IMPLIES(a, b) BABBLE_ASSERT (!a || b);
 #define BABBLE_BRKPT babble_assert_brkpt()
 #else
 #define BABBLE_ASSERT
+#define BABBLE_ASSERT_IMPLIES
+#define BABBLE_BRKPT
 #endif
 
 #endif // #ifdef DEBUG

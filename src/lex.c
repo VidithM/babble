@@ -51,53 +51,31 @@ static int push_block (blocklist *blist,
 }
 
 #ifdef DEBUG
-void dbg_blist (const char *name, blocklist *blist) {
+static char* const LABEL_NAMES[] = {"UNKNOWN", "EMPTY", "INC", "INC_STR_EXPR",
+    "EQ", "EQ_STR_EXPR", "REP", "PRINT", "SCOPE_OPEN", "SCOPE_CLOSE"};
+
+void dbg_blist (const char *name, blocklist blist) {
     printf ("==== DEBUG BLOCKLIST ====\n");
     printf ("name: %s\n", name);
-    printf ("nblocks: %ld\n", blist->nblocks);
-    printf ("cap: %ld\n\n", blist->cap);
-    for (size_t i = 0; i < blist->nblocks; i++) {
+    printf ("nblocks: %ld\n", blist.nblocks);
+    printf ("cap: %ld\n\n", blist.cap);
+    for (size_t i = 0; i < blist.nblocks; i++) {
         printf ("Block: %ld\n", i);
-        char *label_name;
-        switch (blist->blocks[i].label) {
-            case UNKNOWN:
-                label_name = "UNKNOWN";
-                break;
-            case EMPTY:
-                label_name = "EMPTY";
-                break;
-            case INC:
-                label_name = "INC";
-                break;
-            case EQ:
-                label_name = "EQ";
-                break;
-            case REP:
-                label_name = "REP";
-                break;
-            case PRINT:
-                label_name = "PRINT";
-                break;
-            case SCOPE_OPEN:
-                label_name = "SCOPE OPEN";
-                break;
-            default:
-                label_name = "SCOPE CLOSE";
-        }
-        printf ("\tLabel: %d (%s)\n", blist->blocks[i].label, label_name);
-        printf ("\tStart: %ld\n", blist->blocks[i].start);
-        printf ("\tEnd: %ld\n", blist->blocks[i].end);
-        printf ("\tStart line: %d\n", blist->blocks[i].start_line);
+        char *label_name = LABEL_NAMES[blist.blocks[i].label];
+        printf ("\tLabel: %d (%s)\n", blist.blocks[i].label, label_name);
+        printf ("\tStart: %ld\n", blist.blocks[i].start);
+        printf ("\tEnd: %ld\n", blist.blocks[i].end);
+        printf ("\tStart line: %d\n", blist.blocks[i].start_line);
         printf ("\tHotspots: ");
         for (size_t j = 0; j < MAX_HOTSPOTS; j++) {
-            printf ("%02ld ", blist->blocks[i].hotspots[j]);
+            printf ("%02ld ", blist.blocks[i].hotspots[j]);
         }
         printf ("\n");
     }
     printf ("========\n");
 }
 #else
-void dbg_blist (const char *name, blocklist *blist) {}
+void dbg_blist (const char *name, blocklist blist) {}
 #endif
 
 void free_blist (blocklist *blist) {
@@ -106,10 +84,6 @@ void free_blist (blocklist *blist) {
 }
 
 int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
-    // init_blocks (blocks_handle);
-    // Phase 1: Split by ';'
-    // Phase 2: Handle REP and SCOPE
-    // Phase 3: Label blocks
     int ret = BABBLE_OK;
     blocklist blist_phase2;
     memset (&blist_phase2, 0x0, sizeof (blocklist));
@@ -118,7 +92,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
         return BABBLE_MISC_ERR;
     }
 
-    size_t start = 0;
+    size_t start = 0, end;
     int start_line = 1;
     int line = 1;
     for (size_t i = 0; i < buf_size; i++) {
@@ -142,8 +116,6 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             goto done;
         }
     }
-    
-    dbg_blist ("blist", blist);
 
     if (init_blist (&blist_phase2, blist->cap)) {
         ret = BABBLE_MISC_ERR;
@@ -153,7 +125,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
     for (size_t i = 0; i < blist->nblocks; i++) {
         line = blist->blocks[i].start_line;
         start = blist->blocks[i].start;
-        size_t end = blist->blocks[i].end;
+        end = blist->blocks[i].end;
         size_t curr = start;
         while (1) {
             // jump to next non-space
@@ -267,7 +239,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             }
         }
         if (start < end) {
-            snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d\n", line);
+            BABBLE_MSG_COMPILE_ERR (line, "\n");
             ret = BABBLE_COMPILE_ERR;
             goto done;
         }
@@ -284,15 +256,13 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
     // ensure arg formats are right (alphanumeric, cannot start with num)
     for (size_t i = 0; i < blist->nblocks; i++) {
         int failed = 0;
-        size_t start = blist->blocks[i].start;
-        size_t end = blist->blocks[i].end;
-        if (blist->blocks[i].label == INC || blist->blocks[i].label == EQ) {
-            #if 0
-            For strings:
-                -  Change valid_symbol/valid_literal check for rtok to include
-                   expr
-            #endif
+        int generic_msg = 1;
+        int is_expr, block_label_offset;
+        start_line = blist->blocks[i].start_line;
+        start = blist->blocks[i].start;
+        end = blist->blocks[i].end;
 
+        if (blist->blocks[i].label == INC || blist->blocks[i].label == EQ) {
             size_t h1 = blist->blocks[i].hotspots[0];
             if (h1 == 0) {
                 failed = 1;
@@ -329,8 +299,8 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                 goto fail;
             }
 
-            int block_label_offset = 0;
-            int is_expr = valid_expr_full (in_buf, rtok_start, rtok_end, blist->blocks[i].hotspots + 2,
+            block_label_offset = 0;
+            is_expr = valid_expr_full (in_buf, rtok_start, end, 1, blist->blocks[i].hotspots + 2,
                 &block_label_offset);
 
             if (!(valid_symbol (in_buf, rtok_start, rtok_end) ||
@@ -344,9 +314,14 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             // Refine the block label
             if (is_expr) {
                 // TODO: Update to include more expr types
-                printf ("Got an expr! %ld, %ld, %ld\n", blist->blocks[i].hotspots[2], blist->blocks[i].hotspots[3],
-                    blist->blocks[i].hotspots[4]);
                 BABBLE_ASSERT (block_label_offset == 0);
+                if (blist->blocks[i].label == INC) {
+                    BABBLE_MSG_COMPILE_ERR (start_line,
+                        " (+= not supported for string exprs)\n");
+                    failed = 1;
+                    generic_msg = 0;
+                    goto fail;
+                }
                 blist->blocks[i].label += (block_label_offset + 1);
             } else {
                 blist->blocks[i].hotspots[2] = rtok_end;
@@ -359,10 +334,12 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             size_t tok_start = find_next (in_buf, h1 + 1, h2 - 1);
             size_t tok_end = find_prev (in_buf, h1 + 1, h2 - 1);
             if ((tok_start == -1) || (tok_start > tok_end)) {
+                BABBLE_MSG_COMPILE_ERR (start_line, " (missing argument)\n");
+                generic_msg = 0;
                 failed = 1;
                 goto fail;
             }
-            
+
             blist->blocks[i].hotspots[0] = tok_start;
             blist->blocks[i].hotspots[1] = tok_end;
             if (!(valid_symbol (in_buf, tok_start, tok_end) ||
@@ -373,13 +350,16 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
         }
     fail:
         if (failed) {
-            snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d\n",
-                blist->blocks[i].start_line);
+            if (generic_msg) {
+                snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d\n",
+                    blist->blocks[i].start_line);
+            }
             ret = BABBLE_COMPILE_ERR;
             goto done;
         }
     }
 done:
+    dbg_blist ("blist", *blist);
     if (ret != BABBLE_OK) {
         free_blist (blist);
     }

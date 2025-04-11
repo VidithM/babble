@@ -4,7 +4,8 @@
 #include "symstack.h"
 #include "intrinsics.h"
 
-extern intrinsic_info intrinsics [2];
+extern const size_t N_INTRINSICS;
+extern intrinsic_info intrinsics [MAX_INTRINSICS];
 
 #define GET_INTRINSIC(_ret, _symbol)                        \
 {                                                           \
@@ -31,10 +32,10 @@ static void init (FILE *out_file) {
     fprintf (out_file,
         "section .text\n"
         "global _start\n");
-    
-    int n_intrinsics = sizeof (intrinsics) / sizeof (intrinsic_info);
-    // TODO: Put these in a separate `intrinsics.asm` file and include them in
-    for (int i = 0; i < n_intrinsics; i++) {
+
+    // TODO: Put these in a separate intrinsics.asm file and include them in
+    BABBLE_ASSERT (N_INTRINSICS <= MAX_INTRINSICS);
+    for (int i = 0; i < N_INTRINSICS; i++) {
         if (intrinsics[i].impl) {
             fprintf (out_file, "%s", intrinsics[i].source);
         }
@@ -54,7 +55,12 @@ static int assemble (int debug, const char *asm_name,
     char cmd_buf [MSG_LEN];
     struct timeval ts;
     gettimeofday (&ts, NULL);
-    snprintf (cmd_buf, MSG_LEN, "nasm -O0 -o %ld.o -f elf64%s %s", ts.tv_usec,
+
+    char _obj_name [MSG_LEN]; char *obj_name = _obj_name; // Silence -Wformat-truncation
+    snprintf (obj_name, MSG_LEN, "/tmp/babble_%d.%d_%ld.o", BABBLE_VER_MAJOR,
+        BABBLE_VER_MINOR, ts.tv_usec);
+
+    snprintf (cmd_buf, MSG_LEN, "nasm -O0 -o %s -f elf64%s %s", obj_name,
         (debug ? " -gdwarf" : ""), asm_name);
     
     int ret = system (cmd_buf);
@@ -65,8 +71,8 @@ static int assemble (int debug, const char *asm_name,
         return BABBLE_ASSEMBLER_ERR;
     }
 
-    snprintf (cmd_buf, MSG_LEN, "ld%s -o %s %ld.o", (debug ? " -g" : ""),
-        out_name, ts.tv_usec);
+    snprintf (cmd_buf, MSG_LEN, "ld%s -o %s %s", (debug ? " -g" : ""),
+        out_name, obj_name);
     ret = system (cmd_buf);
     if (ret) {
         snprintf (msg, MSG_LEN, "Babble error: Linker error (shell exit code %d)\n",
@@ -74,8 +80,10 @@ static int assemble (int debug, const char *asm_name,
         return BABBLE_LINKER_ERR;
     }
 
-    snprintf (cmd_buf, MSG_LEN, "rm -f %ld.o", ts.tv_usec);
+    #ifndef DEBUG
+    snprintf (cmd_buf, MSG_LEN, "rm -f %s", obj_name);
     system (cmd_buf);
+    #endif
 
     return BABBLE_OK;
 }
@@ -136,8 +144,6 @@ int compile (int debug, const char *in_name,
     blocklist blist;
     ret = lex (in_buf, in_buf_size, &blist, msg);
 
-    // dbg_blist ("blist", &blist);
-
     if (ret) {
         free (in_buf);
         return ret;
@@ -154,14 +160,15 @@ int compile (int debug, const char *in_name,
 
     struct timeval ts;
     gettimeofday (&ts, NULL);
-    char asm_name [MSG_LEN];
+    char _asm_name [MSG_LEN]; char *asm_name = _asm_name; // Silence -Wformat-truncation
     memset (asm_name, 0x0, sizeof (asm_name));
-    snprintf (asm_name, MSG_LEN, "%ld.asm", ts.tv_usec);
+    snprintf (asm_name, MSG_LEN, "/tmp/babble_%d.%d_%ld.asm", BABBLE_VER_MAJOR, 
+        BABBLE_VER_MINOR, ts.tv_usec);
 
     char cmd_buf [MSG_LEN];
-    snprintf (cmd_buf, MSG_LEN, "rm -f %ld.asm", ts.tv_usec);
+    snprintf (cmd_buf, MSG_LEN, "rm -f %s", asm_name);
     system (cmd_buf);
-    snprintf (cmd_buf, MSG_LEN, "touch %ld.asm", ts.tv_usec);
+    snprintf (cmd_buf, MSG_LEN, "touch %s", asm_name);
     system (cmd_buf);
 
     FILE *out_file = fopen (asm_name, "w");
@@ -192,22 +199,19 @@ int compile (int debug, const char *in_name,
             {                                                                           \
                 _sym[_len] = '\0';                                                      \
                 ret = BABBLE_COMPILE_ERR;                                               \
-                snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d"        \
-                    " (variable \"%s\" is undefined)\n", blist.blocks[i].start_line,    \
-                    _sym);                                                              \
+                BABBLE_MSG_COMPILE_ERR (blist.blocks[i].start_line,                     \
+                    " (variable \"%s\" is undefined)\n",  _sym);                        \
                 goto done;                                                              \
             }
-            #define LIT_CHECK(_sym, _len, _val)                                             \
-            {                                                                               \
-                if (!(valid_integral (_sym, 0, _len - 1) ||                                 \
-                    valid_expr (_sym, 0, _len - 1))) {                                      \
-                                                                                            \
-                    SYM_NOT_FOUND (_sym, _len);                                             \
-                }                                                                           \
-                char tmp = _sym[_len];                                                      \
-                _sym[_len] = '\0';                                                          \
-                (*_val) = atoll(_sym);                                                      \
-                _sym[_len] = tmp;                                                           \
+            #define INTEG_CHECK(_sym, _len, _val)                                       \
+            {                                                                           \
+                if (!(valid_integral (_sym, 0, _len - 1))) {                            \
+                   SYM_NOT_FOUND (_sym, _len);                                          \
+                }                                                                       \
+                char tmp = _sym[_len];                                                  \
+                _sym[_len] = '\0';                                                      \
+                (*_val) = atoll(_sym);                                                  \
+                _sym[_len] = tmp;                                                       \
             }
             case SCOPE_OPEN:
                 {
@@ -231,8 +235,8 @@ int compile (int debug, const char *in_name,
 
                     ret = pop_symstack_entry (&stk);
                     if (ret) {
-                        snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d"
-                            " (scope imbalance)\n", blist.blocks[i].start_line);
+                        BABBLE_MSG_COMPILE_ERR (blist.blocks[i].start_line,
+                            " (scope imbalance)\n");
                         ret = BABBLE_COMPILE_ERR;
                         goto done;
                     }
@@ -267,49 +271,73 @@ int compile (int debug, const char *in_name,
                 }
                 break;
             case INC:
+            case INC_STR_EXPR:
             case EQ:
+            case EQ_STR_EXPR:
                 {
+                    int is_expr = (blist.blocks[i].label % 2); // Whether this is a literal expr
                     int is_inc = (blist.blocks[i].label == INC);
-                    hot[0] = blist.blocks[i].hotspots[0];
-                    hot[1] = blist.blocks[i].hotspots[1];
-                    hot[2] = blist.blocks[i].hotspots[2];
+                    BABBLE_ASSERT_IMPLIES (is_expr, !is_inc);
+
+                    memcpy (hot, blist.blocks[i].hotspots, 5 * sizeof(size_t));
                     
-                    char *lsym = in_buf + start;
-                    char *rsym = in_buf + hot[1];
-                    size_t l_len = hot[0] - start + 1;
-                    size_t r_len = hot[2] - hot[1] + 1;
+                    #if 0
+                        - Handling exprs:
+                            - If is_expr, we know its a literal
+                            - Else, run the symbol check. If null, must be integral
+                    #endif
+
+                    char *lsym, *rsym;
+                    size_t l_len, r_len;
                     symbol lsym_info, rsym_info;
 
+                    lsym = in_buf + start;
+                    l_len = hot[0] - start + 1;
                     find_symbol (&lsym_info, &stk, lsym, l_len);
-                    find_symbol (&rsym_info, &stk, rsym, r_len);
+
+                    if (!is_expr) {
+                        rsym = in_buf + hot[1];
+                        r_len = hot[2] - hot[1] + 1;
+                        find_symbol (&rsym_info, &stk, rsym, r_len);
+                    }
 
                     int64_t rval;
                     // Every valid symbol has a name. A NULL name means the symbol does not exist.
-                    if (rsym_info.name == NULL) {
-                        // rsym must be a literal
-                        LIT_CHECK (rsym, r_len, &rval);
+                    if (!is_expr && (rsym_info.name == NULL)) {
+                        // rsym must be a integer literal
+                        INTEG_CHECK (rsym, r_len, &rval);
                     }
                     if (lsym_info.name == NULL) {
                         // lsym is known to be a non-literal
                         if (is_inc) {
                             SYM_NOT_FOUND (lsym, l_len);
                         }
+                        size_t rsym_size;
                         // assign
-                        if (rsym_info.name == NULL) {
-                            fprintf (out_file,
-                                "mov r8, %ld\n"
-                                "push r8\n", rval);
+                        if (is_expr || (rsym_info.name == NULL)) {
+                            if (is_expr) {
+                                rsym_size = hot[4] - hot[3];
+                            } else {
+                                rsym_size = 8;
+                                fprintf (out_file,
+                                    "mov r8, %ld\n"
+                                    "push r8\n", rval);
+                            }
                         } else {
-                            fprintf (out_file,
-                                "mov r9, rbp\n"
-                                "sub r9, %ld\n"
-                                "mov r8, [r9]\n"
-                                "push r8\n", rsym_info.offset);    
+                            rsym_size = rsym_info.size;
+                            if (rsym_info.category == STRING) {                                
+                            } else {
+                                fprintf (out_file,
+                                    "mov r9, rbp\n"
+                                    "sub r9, %ld\n"
+                                    "mov r8, [r9]\n"
+                                    "push r8\n", rsym_info.offset);
+                            }    
                         }
                         lsym_info.name = lsym;
                         lsym_info.name_len = l_len;
-                        lsym_info.size = 8;
-                        lsym_info.offset = frame_size + 8;
+                        lsym_info.size = rsym_size;
+                        lsym_info.offset = frame_size + rsym_size;
                         lsym_info.category = INT64;
 
                         ret = insert_symbol (&stk, lsym_info);
@@ -318,13 +346,14 @@ int compile (int debug, const char *in_name,
                         if (ret) { goto done; }
                     } else {
                         // set
-                        const char *upd_instr = (is_inc ? "add" : "mov");
-                        if (rsym_info.name == NULL) {
+                        const char *int_upd_instr = (is_inc ? "add" : "mov");
+                        if (is_expr || (rsym_info.name == NULL)) {
+
                             fprintf (out_file,
                                 "mov r8, %ld\n"
                                 "mov r9, rbp\n"
                                 "sub r9, %ld\n"
-                                "%s [r9], r8\n", rval, lsym_info.offset, upd_instr);
+                                "%s [r9], r8\n", rval, lsym_info.offset, int_upd_instr);
                         } else {
                             fprintf (out_file,
                                 "mov r9, rbp\n"
@@ -332,7 +361,7 @@ int compile (int debug, const char *in_name,
                                 "mov r8, [r9]\n"
                                 "mov r9, rbp\n"
                                 "sub r9, %ld\n"
-                                "%s [r9], r8\n", rsym_info.offset, lsym_info.offset, upd_instr);
+                                "%s [r9], r8\n", rsym_info.offset, lsym_info.offset, int_upd_instr);
                         }
                     }
                 }
@@ -361,10 +390,13 @@ int compile (int debug, const char *in_name,
 
                     int64_t val;
                     if (sym_info.name == NULL) {
-                        LIT_CHECK (sym, len, &val);
+                        INTEG_CHECK (sym, len, &val);
                         fprintf (out_file,
                             "mov rcx, %ld\n", val);
                     } else {
+                        if (sym_info.category == STRING) {
+                            // snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d");
+                        }
                         fprintf (out_file,
                             "mov r9, rbp\n"
                             "sub r9, %ld\n"
@@ -390,15 +422,19 @@ int compile (int debug, const char *in_name,
 
                     int64_t val;
                     if (sym_info.name == NULL) {
-                        LIT_CHECK (sym, len, &val);
+                        INTEG_CHECK (sym, len, &val);
                         fprintf (out_file,
                             "mov rdi, %ld\n", val);
                     } else {
+                        if (sym_info.category == STRING) {
+                            printf ("Printing a string\n");
+                        }
                         fprintf (out_file,
                             "mov r9, rbp\n"
                             "sub r9, %ld\n"
                             "mov rdi, [r9]\n", sym_info.offset);
                     }
+                    BABBLE_BRKPT;
                     char *tmp;
                     GET_INTRINSIC (&tmp, "print_i64");
                     fprintf (out_file, "%s", tmp);
@@ -408,7 +444,7 @@ int compile (int debug, const char *in_name,
     }
 done:
     if ((!ret) && (stk.nscopes > 1)) {
-        snprintf (msg, MSG_LEN, "Babble error: Compile error (scope imbalance)\n");
+        BABBLE_MSG_COMPILE_ERR (-1, "(scope imbalance)\n");
         ret = BABBLE_COMPILE_ERR;
     }
     fprintf (out_file,
@@ -429,7 +465,7 @@ done:
     ret = assemble (debug, asm_name, out_name, msg);
     // #endif
     #ifndef DEBUG
-    snprintf (cmd_buf, MSG_LEN, "rm -f %ld.asm", ts.tv_usec);
+    snprintf (cmd_buf, MSG_LEN, "rm -f %s", asm_name);
     system (cmd_buf);
     #endif
     return ret;

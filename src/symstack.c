@@ -10,6 +10,7 @@ static size_t char_to_kid (char c) {
     if (c >= 'a' && c <= 'z') {
         return (c - 'a');
     }
+    BABBLE_ASSERT (c >= '0' && c <= '9');
     return (c - '0' + 26);
 }
 

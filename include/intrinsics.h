@@ -1,6 +1,8 @@
 #ifndef INTRINSICS_H
 #define INTRINSICS_H
 
+#define MAX_INTRINSICS 128
+
 typedef struct intrinsic_info {
     char *symbol;
     char *source;

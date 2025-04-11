@@ -9,7 +9,7 @@ TIME := `date +"%H:%M"`
 
 all: CFLAGS += -DBUILD_DATE=\"$(DATE)\" -DBUILD_TIME=\"$(TIME)\"
 all:
-	@gcc $(CFLAGS) -o $(BUILD_DIR)/babble -I$(INCLUDE_DIRS) $(BABBLE_SOURCES)
+	@gcc -std=c11 $(CFLAGS) -o $(BUILD_DIR)/babble -I$(INCLUDE_DIRS) $(BABBLE_SOURCES)
 	
 debug: CFLAGS += -O0 -g -DDEBUG
 debug: all
