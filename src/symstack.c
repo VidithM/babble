@@ -1,10 +1,26 @@
 #include "symstack.h"
 
-typedef struct symtrie_opaque {
+typedef struct symtrie {
     symbol sym; // sym.name == NULL if not present. A valid symbol always has a name,
                 // so this is an acceptable way to encode no symbol.
-    struct symtrie_opaque *kids [NCHARS];
-} symtrie_opaque;
+    struct symtrie *kids [NCHARS];
+} symtrie;
+
+typedef struct stack_entry {
+    size_t rep_id;
+    size_t nsymbols, cap;
+    symbol *symbols;
+    size_t frame_bottom;
+} stack_entry;
+
+#define SYMSTACK_MAGIC_INIT 0x10716905
+
+typedef struct symstack_opaque {
+    size_t nscopes, cap;
+    stack_entry *scopes;
+    symtrie *trie;
+    int32_t magic;
+} symstack_opaque;
 
 static size_t char_to_kid (char c) {
     if (c >= 'a' && c <= 'z') {
@@ -14,7 +30,7 @@ static size_t char_to_kid (char c) {
     return (c - '0' + 26);
 }
 
-static void free_symtrie (symtrie_opaque *node) {
+static void free_symtrie (symtrie *node) {
     BABBLE_ASSERT (node != NULL);
 
     for (size_t i = 0; i < NCHARS; i++) {
@@ -25,7 +41,7 @@ static void free_symtrie (symtrie_opaque *node) {
     free (node);
 }
 
-static int symtrie_insert (symtrie_opaque *node, symbol sym, size_t idx) {
+static int symtrie_insert (symtrie *node, symbol sym, size_t idx) {
     BABBLE_ASSERT ((node != NULL) && (sym.name != NULL));
     if (idx == sym.name_len) {
         node->sym = sym;
@@ -33,17 +49,17 @@ static int symtrie_insert (symtrie_opaque *node, symbol sym, size_t idx) {
     }
     size_t nxt = char_to_kid (sym.name[idx]);
     if (node->kids[nxt] == NULL) {
-        node->kids[nxt] = (symtrie_opaque *) malloc (sizeof (symtrie_opaque));
+        node->kids[nxt] = (symtrie *) malloc (sizeof (symtrie));
         if (node->kids[nxt] == NULL) {
             return BABBLE_MISC_ERR;
         }
         node->kids[nxt]->sym.name = NULL;
-        memset (node->kids[nxt]->kids, 0x0, NCHARS * sizeof (symtrie_opaque *));
+        memset (node->kids[nxt]->kids, 0x0, NCHARS * sizeof (symtrie *));
     }
     return symtrie_insert (node->kids[nxt], sym, idx + 1);
 }
 
-static int symtrie_remove (symtrie_opaque *node, symbol sym, size_t idx) {
+static int symtrie_remove (symtrie *node, symbol sym, size_t idx) {
     BABBLE_ASSERT ((node != NULL) && (sym.name != NULL));
     if (idx == sym.name_len) {
         node->sym.name = NULL;
@@ -68,7 +84,7 @@ static int symtrie_remove (symtrie_opaque *node, symbol sym, size_t idx) {
     return 0;
 }
 
-static void symtrie_find (symbol *sym, symtrie_opaque *node, const char *sym_name,
+static void symtrie_find (symbol *sym, symtrie *node, const char *sym_name,
     size_t len, size_t idx) {
     BABBLE_ASSERT (node != NULL);
     BABBLE_ASSERT (sym != NULL);
@@ -99,24 +115,37 @@ void free_symstack (symstack *stk) {
     free_symtrie (stk->trie);
 }
 
-int init_symstack (symstack *stk) {
+int init_symstack (symstack *stk_out) {
     BABBLE_ASSERT (stk != NULL);
 
+    (*stk_out) = (symstack_opaque *) malloc (sizeof (symstack_opaque));
+    if ((*stk_out) == NULL) {
+        return BABBLE_MISC_ERR;
+    }
+    symstack_opaque *stk = (*stk_out);
+
+    stk->magic = SYMSTACK_MAGIC_INIT;
     stk->nscopes = 0;
     stk->cap = 0;
-    push_symstack_entry (stk, -1, 0);
+    push_symstack_entry (stk_out, -1, 0);
 
-    stk->trie = (symtrie_opaque *) malloc (sizeof (symtrie_opaque));
+    stk->trie = (symtrie *) malloc (sizeof (symtrie));
     if (stk->scopes == NULL || stk->trie == NULL) {
         return BABBLE_MISC_ERR;
     }
     stk->trie->sym.name = NULL;
-    memset (stk->trie->kids, 0x0, NCHARS * sizeof (symtrie_opaque *));
+    memset (stk->trie->kids, 0x0, NCHARS * sizeof (symtrie *));
     return BABBLE_OK;
 }
 
-int push_symstack_entry (symstack *stk, size_t rep_id, size_t curr_bottom) {
-    BABBLE_ASSERT (stk != NULL);
+int push_symstack_entry (symstack *stk_out, size_t rep_id, size_t curr_bottom) {
+    BABBLE_ASSERT (stk_out != NULL);
+
+    // May segfault. OK, since that would be a bug in the caller (who owns
+    // the symstack) and not this code.
+    symstack_opaque *stk = (*stk_out);
+    BABBLE_ASSERT ((stk != NULL) && (stk->magic == SYMSTACK_MAGIC_INIT));
+
     if (stk->cap == stk->nscopes) {
         if (stk->cap == 0) {
             stk->scopes = (stack_entry *) malloc (sizeof (stack_entry));
@@ -191,7 +220,7 @@ int insert_symbol (symstack *stk, symbol sym) {
     return BABBLE_OK;
 }
 
-void find_symbol (symbol *sym, symstack *stk, const char *sym_name,
+void find_symbol (symbol *sym, symstack stk, const char *sym_name,
     size_t len) {
 
     BABBLE_ASSERT (stk != NULL);

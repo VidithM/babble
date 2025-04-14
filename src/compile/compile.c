@@ -189,8 +189,10 @@ int compile (int debug, const char *in_name,
     size_t frame_size = 0;
     for (size_t i = 0; i < blist.nblocks; i++) {
         size_t start, end;
+        int start_line;
         size_t hot[MAX_HOTSPOTS];
 
+        start_line = blist.blocks[i].start_line;
         start = blist.blocks[i].start;
         end = blist.blocks[i].end;
 
@@ -199,7 +201,7 @@ int compile (int debug, const char *in_name,
             {                                                                           \
                 _sym[_len] = '\0';                                                      \
                 ret = BABBLE_COMPILE_ERR;                                               \
-                BABBLE_MSG_COMPILE_ERR (blist.blocks[i].start_line,                     \
+                BABBLE_MSG_COMPILE_ERR (start_line,                                     \
                     " (variable \"%s\" is undefined)\n",  _sym);                        \
                 goto done;                                                              \
             }
@@ -235,7 +237,7 @@ int compile (int debug, const char *in_name,
 
                     ret = pop_symstack_entry (&stk);
                     if (ret) {
-                        BABBLE_MSG_COMPILE_ERR (blist.blocks[i].start_line,
+                        BABBLE_MSG_COMPILE_ERR (start_line,
                             " (scope imbalance)\n");
                         ret = BABBLE_COMPILE_ERR;
                         goto done;
@@ -275,96 +277,7 @@ int compile (int debug, const char *in_name,
             case EQ:
             case EQ_STR_EXPR:
                 {
-                    int is_expr = (blist.blocks[i].label % 2); // Whether this is a literal expr
-                    int is_inc = (blist.blocks[i].label == INC);
-                    BABBLE_ASSERT_IMPLIES (is_expr, !is_inc);
-
-                    memcpy (hot, blist.blocks[i].hotspots, 5 * sizeof(size_t));
-                    
-                    #if 0
-                        - Handling exprs:
-                            - If is_expr, we know its a literal
-                            - Else, run the symbol check. If null, must be integral
-                    #endif
-
-                    char *lsym, *rsym;
-                    size_t l_len, r_len;
-                    symbol lsym_info, rsym_info;
-
-                    lsym = in_buf + start;
-                    l_len = hot[0] - start + 1;
-                    find_symbol (&lsym_info, &stk, lsym, l_len);
-
-                    if (!is_expr) {
-                        rsym = in_buf + hot[1];
-                        r_len = hot[2] - hot[1] + 1;
-                        find_symbol (&rsym_info, &stk, rsym, r_len);
-                    }
-
-                    int64_t rval;
-                    // Every valid symbol has a name. A NULL name means the symbol does not exist.
-                    if (!is_expr && (rsym_info.name == NULL)) {
-                        // rsym must be a integer literal
-                        INTEG_CHECK (rsym, r_len, &rval);
-                    }
-                    if (lsym_info.name == NULL) {
-                        // lsym is known to be a non-literal
-                        if (is_inc) {
-                            SYM_NOT_FOUND (lsym, l_len);
-                        }
-                        size_t rsym_size;
-                        // assign
-                        if (is_expr || (rsym_info.name == NULL)) {
-                            if (is_expr) {
-                                rsym_size = hot[4] - hot[3];
-                            } else {
-                                rsym_size = 8;
-                                fprintf (out_file,
-                                    "mov r8, %ld\n"
-                                    "push r8\n", rval);
-                            }
-                        } else {
-                            rsym_size = rsym_info.size;
-                            if (rsym_info.category == STRING) {                                
-                            } else {
-                                fprintf (out_file,
-                                    "mov r9, rbp\n"
-                                    "sub r9, %ld\n"
-                                    "mov r8, [r9]\n"
-                                    "push r8\n", rsym_info.offset);
-                            }    
-                        }
-                        lsym_info.name = lsym;
-                        lsym_info.name_len = l_len;
-                        lsym_info.size = rsym_size;
-                        lsym_info.offset = frame_size + rsym_size;
-                        lsym_info.category = INT64;
-
-                        ret = insert_symbol (&stk, lsym_info);
-                        frame_size += lsym_info.size;
-
-                        if (ret) { goto done; }
-                    } else {
-                        // set
-                        const char *int_upd_instr = (is_inc ? "add" : "mov");
-                        if (is_expr || (rsym_info.name == NULL)) {
-
-                            fprintf (out_file,
-                                "mov r8, %ld\n"
-                                "mov r9, rbp\n"
-                                "sub r9, %ld\n"
-                                "%s [r9], r8\n", rval, lsym_info.offset, int_upd_instr);
-                        } else {
-                            fprintf (out_file,
-                                "mov r9, rbp\n"
-                                "sub r9, %ld\n"
-                                "mov r8, [r9]\n"
-                                "mov r9, rbp\n"
-                                "sub r9, %ld\n"
-                                "%s [r9], r8\n", rsym_info.offset, lsym_info.offset, int_upd_instr);
-                        }
-                    }
-                }
+                gen_eq_family (blist.blocks[i], stk, )
                 break;
             case REP:
                 {
@@ -394,8 +307,9 @@ int compile (int debug, const char *in_name,
                         fprintf (out_file,
                             "mov rcx, %ld\n", val);
                     } else {
-                        if (sym_info.category == STRING) {
-                            // snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d");
+                        if (sym_info.category != INT64) {
+                            BABBLE_MSG_COMPILE_ERR (start_line, "\"rep\" cannot accept a "
+                                "non-integer argument\n");
                         }
                         fprintf (out_file,
                             "mov r9, rbp\n"
@@ -428,11 +342,12 @@ int compile (int debug, const char *in_name,
                     } else {
                         if (sym_info.category == STRING) {
                             printf ("Printing a string\n");
+                        } else {
+                            fprintf (out_file,
+                                "mov r9, rbp\n"
+                                "sub r9, %ld\n"
+                                "mov rdi, [r9]\n", sym_info.offset);
                         }
-                        fprintf (out_file,
-                            "mov r9, rbp\n"
-                            "sub r9, %ld\n"
-                            "mov rdi, [r9]\n", sym_info.offset);
                     }
                     BABBLE_BRKPT;
                     char *tmp;

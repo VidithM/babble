@@ -19,29 +19,16 @@ typedef struct symbol {
     enum sym_category category;
 } symbol;
 
-typedef struct stack_entry {
-    size_t rep_id;
-    size_t nsymbols, cap;
-    symbol *symbols;
-    size_t frame_bottom;
-} stack_entry;
-
-typedef struct symtrie_opaque* symtrie;
-
-typedef struct symstack {
-    size_t nscopes, cap;
-    stack_entry *scopes;
-    symtrie trie;
-} symstack;
+typedef struct (symstack_opaque *) symstack;
 
 int init_symstack (symstack *stk);
 void free_symstack (symstack *stk);
 int push_symstack_entry (symstack *stk, size_t rep_id, size_t curr_bottom);
 int pop_symstack_entry (symstack *stk);
 int insert_symbol (symstack *stk, symbol sym);
-void find_symbol (symbol *sym, symstack *stk, const char *symbol, size_t len);
+void find_symbol (symbol *sym, const symstack stk, const char *symbol, size_t len);
 // TODO: Get rid of below 2?
-void get_curr_frame_bottom (size_t *frame_size, symstack *stk);
-void get_curr_frame_rep_id (size_t *rep_id, symstack *stk);
+void get_curr_frame_bottom (size_t *frame_size, const symstack stk);
+void get_curr_frame_rep_id (size_t *rep_id, const symstack stk);
 
 #endif

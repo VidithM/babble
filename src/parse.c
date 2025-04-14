@@ -141,11 +141,11 @@ int valid_expr_full (const char *buf, size_t start, size_t end,
     if (type == 0) {
         at = find_next (buf, at, end);
         if ((at == -1) || (buf[at] != '\"')) { return 0; }
-        hotspots[1] = at + 1;
+        hotspots[1] = at;
         at++;
         at = find_next_pat (buf, at, end, "\"", 1);
         if (at == -1) { return 0; }
-        hotspots[2] = at - 1;
+        hotspots[2] = at;
         at++;
     }
 
