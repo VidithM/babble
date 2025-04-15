@@ -19,7 +19,7 @@ typedef struct symbol {
     enum sym_category category;
 } symbol;
 
-typedef struct (symstack_opaque *) symstack;
+typedef struct symstack_opaque* symstack;
 
 int init_symstack (symstack *stk);
 void free_symstack (symstack *stk);
@@ -30,5 +30,6 @@ void find_symbol (symbol *sym, const symstack stk, const char *symbol, size_t le
 // TODO: Get rid of below 2?
 void get_curr_frame_bottom (size_t *frame_size, const symstack stk);
 void get_curr_frame_rep_id (size_t *rep_id, const symstack stk);
+void get_nscopes (size_t *nscopes, const symstack stk);
 
 #endif

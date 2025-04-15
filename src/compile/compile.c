@@ -2,6 +2,7 @@
 #include "parse.h"
 #include "lex.h"
 #include "symstack.h"
+#include "codegen.h"
 #include "intrinsics.h"
 
 extern const size_t N_INTRINSICS;
@@ -187,6 +188,7 @@ int compile (int debug, const char *in_name,
 
     size_t nxt_rep_id = 0;
     size_t frame_size = 0;
+    size_t nscopes;
     for (size_t i = 0; i < blist.nblocks; i++) {
         size_t start, end;
         int start_line;
@@ -197,28 +199,10 @@ int compile (int debug, const char *in_name,
         end = blist.blocks[i].end;
 
         switch (blist.blocks[i].label) {
-            #define SYM_NOT_FOUND(_sym, _len)                                           \
-            {                                                                           \
-                _sym[_len] = '\0';                                                      \
-                ret = BABBLE_COMPILE_ERR;                                               \
-                BABBLE_MSG_COMPILE_ERR (start_line,                                     \
-                    " (variable \"%s\" is undefined)\n",  _sym);                        \
-                goto done;                                                              \
-            }
-            #define INTEG_CHECK(_sym, _len, _val)                                       \
-            {                                                                           \
-                if (!(valid_integral (_sym, 0, _len - 1))) {                            \
-                   SYM_NOT_FOUND (_sym, _len);                                          \
-                }                                                                       \
-                char tmp = _sym[_len];                                                  \
-                _sym[_len] = '\0';                                                      \
-                (*_val) = atoll(_sym);                                                  \
-                _sym[_len] = tmp;                                                       \
-            }
             case SCOPE_OPEN:
                 {
                     size_t curr_rep_id;
-                    get_curr_frame_rep_id (&curr_rep_id, &stk);
+                    get_curr_frame_rep_id (&curr_rep_id, stk);
 
                     if (curr_rep_id != -1) {
                         fprintf (out_file,
@@ -233,7 +217,7 @@ int compile (int debug, const char *in_name,
             case SCOPE_CLOSE:
                 {
                     size_t curr_rep_id;
-                    get_curr_frame_rep_id (&curr_rep_id, &stk);
+                    get_curr_frame_rep_id (&curr_rep_id, stk);
 
                     ret = pop_symstack_entry (&stk);
                     if (ret) {
@@ -244,10 +228,10 @@ int compile (int debug, const char *in_name,
                     }
 
                     size_t prev_rep_id;
-                    get_curr_frame_rep_id (&prev_rep_id, &stk);
+                    get_curr_frame_rep_id (&prev_rep_id, stk);
 
                     size_t frame_bottom;
-                    get_curr_frame_bottom (&frame_bottom, &stk);
+                    get_curr_frame_bottom (&frame_bottom, stk);
 
                     if (curr_rep_id != -1) {
                         fprintf (out_file,
@@ -277,12 +261,14 @@ int compile (int debug, const char *in_name,
             case EQ:
             case EQ_STR_EXPR:
                 {
-                gen_eq_family (blist.blocks[i], stk, )
-                break;
+                    ret = gen_eq_family (blist.blocks[i], &stk, in_buf,
+                        /* should this be &out_file? */ out_file, msg);
+                    if (ret) { goto done; }
+                }
             case REP:
                 {
                     size_t curr_rep_id;
-                    get_curr_frame_rep_id (&curr_rep_id, &stk);
+                    get_curr_frame_rep_id (&curr_rep_id, stk);
                     if (curr_rep_id != -1) {
                         fprintf (out_file,
                             "push rcx\n");
@@ -299,7 +285,7 @@ int compile (int debug, const char *in_name,
                     size_t len = hot[1] - hot[0] + 1;
                     symbol sym_info;
 
-                    find_symbol (&sym_info, &stk, sym, len);
+                    find_symbol (&sym_info, stk, sym, len);
 
                     int64_t val;
                     if (sym_info.name == NULL) {
@@ -332,7 +318,7 @@ int compile (int debug, const char *in_name,
                     char *sym = in_buf + hot[0];
                     size_t len = hot[1] - hot[0] + 1;
                     symbol sym_info;
-                    find_symbol (&sym_info, &stk, sym, len);
+                    find_symbol (&sym_info, stk, sym, len);
 
                     int64_t val;
                     if (sym_info.name == NULL) {
@@ -358,7 +344,8 @@ int compile (int debug, const char *in_name,
         }
     }
 done:
-    if ((!ret) && (stk.nscopes > 1)) {
+    get_nscopes (&nscopes, stk);
+    if ((!ret) && (nscopes > 1)) {
         BABBLE_MSG_COMPILE_ERR (-1, "(scope imbalance)\n");
         ret = BABBLE_COMPILE_ERR;
     }

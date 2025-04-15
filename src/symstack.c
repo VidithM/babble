@@ -105,18 +105,27 @@ static void symtrie_find (symbol *sym, symtrie *node, const char *sym_name,
     symtrie_find (sym, node->kids[nxt], sym_name, len, idx + 1);
 }
 
-void free_symstack (symstack *stk) {
-    BABBLE_ASSERT (stk != NULL);
+void free_symstack (symstack *stk_out) {
+    if (stk_out == NULL) {
+        return;
+    }
+    symstack_opaque *stk = (*stk_out);
+    if (stk == NULL) {
+        return;
+    }
 
+    BABBLE_ASSERT (stk->magic == SYMSTACK_MAGIC_INIT);
     for (size_t i = 0; i < stk->nscopes; i++) {
         free (stk->scopes[i].symbols);
     }
     free (stk->scopes);
     free_symtrie (stk->trie);
+    free (stk);
+    (*stk_out) = NULL;
 }
 
 int init_symstack (symstack *stk_out) {
-    BABBLE_ASSERT (stk != NULL);
+    BABBLE_ASSERT (stk_out != NULL);
 
     (*stk_out) = (symstack_opaque *) malloc (sizeof (symstack_opaque));
     if ((*stk_out) == NULL) {
@@ -174,8 +183,12 @@ int push_symstack_entry (symstack *stk_out, size_t rep_id, size_t curr_bottom) {
     return BABBLE_OK;
 }
 
-int pop_symstack_entry (symstack *stk) {
-    BABBLE_ASSERT (stk != NULL);
+int pop_symstack_entry (symstack *stk_out) {
+    BABBLE_ASSERT (stk_out != NULL);
+
+    symstack_opaque *stk = (*stk_out);
+    BABBLE_ASSERT ((stk != NULL) && (stk->magic == SYMSTACK_MAGIC_INIT));
+
     if (stk->nscopes <= 1) {
         return BABBLE_BAD_ARGS;
     }
@@ -188,9 +201,13 @@ int pop_symstack_entry (symstack *stk) {
     return BABBLE_OK;
 }
 
-int insert_symbol (symstack *stk, symbol sym) {
+int insert_symbol (symstack *stk_out, symbol sym) {
     
-    BABBLE_ASSERT (stk != NULL);
+    BABBLE_ASSERT (stk_out != NULL);
+
+    symstack_opaque *stk = (*stk_out);
+    BABBLE_ASSERT ((stk != NULL) && (stk->magic == SYMSTACK_MAGIC_INIT));
+    
     BABBLE_ASSERT (stk->nscopes > 0);
 
     stack_entry *scope = &stk->scopes[stk->nscopes - 1];
@@ -220,10 +237,10 @@ int insert_symbol (symstack *stk, symbol sym) {
     return BABBLE_OK;
 }
 
-void find_symbol (symbol *sym, symstack stk, const char *sym_name,
+void find_symbol (symbol *sym, const symstack stk, const char *sym_name,
     size_t len) {
 
-    BABBLE_ASSERT (stk != NULL);
+    BABBLE_ASSERT ((stk != NULL) && (stk->magic == SYMSTACK_MAGIC_INIT));
     BABBLE_ASSERT (sym != NULL);
     BABBLE_ASSERT (sym_name != NULL);
     BABBLE_ASSERT (len > 0);
@@ -238,20 +255,28 @@ void find_symbol (symbol *sym, symstack stk, const char *sym_name,
     }
 }
 
-void get_curr_frame_bottom (size_t *frame_bottom, symstack *stk) {
+void get_curr_frame_bottom (size_t *frame_bottom, const symstack stk) {
 
-    BABBLE_ASSERT (stk != NULL);
+    BABBLE_ASSERT ((stk != NULL) && (stk->magic == SYMSTACK_MAGIC_INIT));
     BABBLE_ASSERT (frame_bottom != NULL);
     BABBLE_ASSERT (stk->nscopes > 0);
 
     (*frame_bottom) = stk->scopes[stk->nscopes - 1].frame_bottom;
 }
 
-void get_curr_frame_rep_id (size_t *rep_id, symstack *stk) {
+void get_curr_frame_rep_id (size_t *rep_id, const symstack stk) {
 
-    BABBLE_ASSERT (stk != NULL);
+    BABBLE_ASSERT ((stk != NULL) && (stk->magic == SYMSTACK_MAGIC_INIT));
     BABBLE_ASSERT (rep_id != NULL);
     BABBLE_ASSERT (stk->nscopes > 0);
 
     (*rep_id) = stk->scopes[stk->nscopes - 1].rep_id;
+}
+
+void get_nscopes (size_t *nscopes, const symstack stk) {
+
+    BABBLE_ASSERT ((stk != NULL) && (stk->magic == SYMSTACK_MAGIC_INIT));
+    BABBLE_ASSERT (nscopes != NULL);
+
+    (*nscopes) = stk->nscopes;
 }
