@@ -3,24 +3,9 @@
 #include "lex.h"
 #include "symstack.h"
 #include "codegen.h"
-#include "intrinsics.h"
 
 extern const size_t N_INTRINSICS;
 extern intrinsic_info intrinsics [MAX_INTRINSICS];
-
-#define GET_INTRINSIC(_ret, _symbol)                        \
-{                                                           \
-   (*_ret) = NULL;                                          \
-    for (int i = 0;                                         \
-        i < sizeof (intrinsics) / sizeof (intrinsic_info);  \
-        i++) {                                              \
-                                                            \
-        if (!strcmp (intrinsics[i].symbol, _symbol)) {      \
-            (*_ret) = intrinsics[i].source;                 \
-            break;                                          \
-        }                                                   \
-    }                                                       \
-}
 
 static void init (FILE *out_file) {
     fprintf (out_file,
@@ -261,10 +246,11 @@ int compile (int debug, const char *in_name,
             case EQ:
             case EQ_STR_EXPR:
                 {
-                    ret = gen_eq_family (blist.blocks[i], &stk, in_buf,
+                    ret = gen_eq_family (blist.blocks[i], stk, in_buf, &frame_size,
                         /* should this be &out_file? */ out_file, msg);
                     if (ret) { goto done; }
                 }
+                break;
             case REP:
                 {
                     size_t curr_rep_id;
@@ -313,32 +299,8 @@ int compile (int debug, const char *in_name,
                 break;
             case PRINT:
                 {
-                    hot[0] = blist.blocks[i].hotspots[0];
-                    hot[1] = blist.blocks[i].hotspots[1];
-                    char *sym = in_buf + hot[0];
-                    size_t len = hot[1] - hot[0] + 1;
-                    symbol sym_info;
-                    find_symbol (&sym_info, stk, sym, len);
-
-                    int64_t val;
-                    if (sym_info.name == NULL) {
-                        INTEG_CHECK (sym, len, &val);
-                        fprintf (out_file,
-                            "mov rdi, %ld\n", val);
-                    } else {
-                        if (sym_info.category == STRING) {
-                            printf ("Printing a string\n");
-                        } else {
-                            fprintf (out_file,
-                                "mov r9, rbp\n"
-                                "sub r9, %ld\n"
-                                "mov rdi, [r9]\n", sym_info.offset);
-                        }
-                    }
-                    BABBLE_BRKPT;
-                    char *tmp;
-                    GET_INTRINSIC (&tmp, "print_i64");
-                    fprintf (out_file, "%s", tmp);
+                    ret = gen_print (blist.blocks[i], stk, in_buf, out_file, msg);
+                    if (ret) { goto done; }
                 }
                 break;
         }
