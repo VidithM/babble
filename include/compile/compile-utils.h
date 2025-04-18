@@ -2,23 +2,6 @@
 #define COMPILE_H
 
 #include "parse.h"
-#include "intrinsics.h"
-
-#define GET_INTRINSIC(_ret, _symbol)                        \
-{                                                           \
-    extern const size_t N_INTRINSICS;                       \
-    extern intrinsic_info intrinsics [MAX_INTRINSICS];      \
-    (*_ret) = NULL;                                         \
-    for (int i = 0;                                         \
-        i < sizeof (intrinsics) / sizeof (intrinsic_info);  \
-        i++) {                                              \
-                                                            \
-        if (!strcmp (intrinsics[i].symbol, _symbol)) {      \
-            (*_ret) = intrinsics[i].source;                 \
-            break;                                          \
-        }                                                   \
-    }                                                       \
-}
 
 #define SYM_NOT_FOUND(_sym, _len)                                           \
 {                                                                           \
@@ -31,10 +14,13 @@
 
 #define TYPE_CHECK(a, b)                                                    \
 {                                                                           \
+    char* TYPE_NAMES[] = {"INT64", "STRING"};                               \
     if (a != b) {                                                           \
         ret = BABBLE_COMPILE_ERR;                                           \
         BABBLE_MSG_COMPILE_ERR (start_line,                                 \
-            " (type mismatch: expected %d, got %d)\n", a, b);               \
+            " (type mismatch: expected %s, got %s)\n",                      \
+            TYPE_NAMES[a], TYPE_NAMES[b]);                                  \
+        goto done;                                                          \
     }                                                                       \
 }
 

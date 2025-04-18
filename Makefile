@@ -1,7 +1,7 @@
 .PHONY: all
 .DEFAULT_GOAL := all
 BUILD_DIR := ./build
-INCLUDE_DIRS := -I./include -I./include/compile
+INCLUDE_DIRS := -I./include -I./include/compile -I./include/intrinsics
 CFLAGS :=
 BABBLE_SOURCES := $(wildcard ./src/*.c ./src/compile/*.c)
 DATE := `date +"%Y-%m-%d"`

@@ -1,11 +1,11 @@
 #include "babble-lang.h"
+#include "intrinsics.h"
 #include "parse.h"
 #include "lex.h"
 #include "symstack.h"
-#include "codegen.h"
 
-extern const size_t N_INTRINSICS;
-extern intrinsic_info intrinsics [MAX_INTRINSICS];
+#include "compile-utils.h"
+#include "codegen.h"
 
 static void init (FILE *out_file) {
     fprintf (out_file,
@@ -225,7 +225,7 @@ int compile (int debug, const char *in_name,
                     // TODO: Maintain prev rsp, num scopes in regs?
                     fprintf (out_file,
                         "mov rsp, rbp\n"
-                        "sub rsp, %ld\n", frame_bottom);
+                        "sub rsp, 0x%lx\n", frame_bottom);
                     frame_size = frame_bottom;
 
                     if (curr_rep_id != -1) {
@@ -282,10 +282,12 @@ int compile (int debug, const char *in_name,
                         if (sym_info.category != INT64) {
                             BABBLE_MSG_COMPILE_ERR (start_line, "\"rep\" cannot accept a "
                                 "non-integer argument\n");
+                            ret = BABBLE_COMPILE_ERR;
+                            goto done;
                         }
                         fprintf (out_file,
                             "mov r9, rbp\n"
-                            "sub r9, %ld\n"
+                            "sub r9, 0x%lx\n"
                             "mov rcx, [r9]\n", sym_info.offset);   
                     }
 

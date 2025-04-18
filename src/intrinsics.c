@@ -1,5 +1,5 @@
 #include "babble-lang.h"
-#include "intrinsics.h"
+#include "intrinsic-info.h"
 
 const intrinsic_info intrinsics [] = {
     {
@@ -57,27 +57,6 @@ const intrinsic_info intrinsics [] = {
             .impl = 1
     },
     {
-        .symbol = "print_str_impl",
-        .source =
-            "_print_str:\n"
-                "mov r8, 0\n"
-                "mov rcx, rdi\n"
-                ".print_str_loop:\n"
-                    "mov r11, [rcx]\n"
-                    "cmp r11, 0x0\n"
-                    "jz .print_str_return\n"
-                    "inc r8\n"
-                    "jmp .print_str_loop\n"
-                ".print_str_return:\n"
-                    "mov rdi, 1\n"
-                    "mov rsi, rdi\n"
-                    "mov rdx, r8\n"
-                    "mov rax, 1\n"
-                    "syscall\n"
-                    "ret\n",
-        .impl = 1
-    },
-    {
         .symbol = "print_i64",
         .source = 
             "push rax\n"
@@ -90,14 +69,39 @@ const intrinsic_info intrinsics [] = {
         .impl = 0
     },
     {
-        .symbol = "print_str",
+        .symbol = "_memcpy",
+        .source =
+            "; == memcpy [rdx] bytes from ([rsi] ... [rsi + [rdx]]) to ([rdi] ... [rdi + [rdx]])"
+            "mov rax, rdi\n"
+            "mov rbx, rsi\n"
+            "mov r8, [rdx]\n"
+            ".memcpy_loop:\n"
+                "cmp r8, 0x0\n"
+                "jz .memcpy_return\n"
+                "mov r11, [sil]\n"
+                "mov [rdi], r11\n"
+                "add rax, 0x1\n"
+                "add rbx, 0x1\n"
+                "jmp .memcpy_loop\n"
+            ".memcpy_return:\n"
+                "ret\n",
+        .impl = 1
+    },
+    {
+        .symbol = "memcpy",
         .source = 
             "push rax\n"
-            "push rdi\n"
+            "push rbx\n"
             "push rcx\n"
-            "call _print_str\n"
-            "pop rcx\n"
+            "push rdi\n"
+            "push rsi\n"
+            "push rdx\n"
+            "call _memcpy\n"
+            "pop rdx\n"
+            "pop rsi\n"
             "pop rdi\n"
+            "pop rcx\n"
+            "pop rbx\n"
             "pop rax\n",
         .impl = 0
     }

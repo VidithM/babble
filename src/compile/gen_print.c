@@ -1,4 +1,7 @@
 #include "codegen.h"
+#include "compile-utils.h"
+
+#include "intrinsics.h"
 
 int gen_print (block blk, symstack stk, char *in_buf,
     FILE *out_file, char *msg) {
@@ -24,7 +27,7 @@ int gen_print (block blk, symstack stk, char *in_buf,
         } else {
             fprintf (out_file,
                 "mov r9, rbp\n"
-                "sub r9, %ld\n"
+                "sub r9, 0x%lx\n"
                 "mov rdi, [r9]\n", sym_info.offset);
         }
     }

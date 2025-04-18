@@ -51,7 +51,7 @@ static int push_block (blocklist *blist,
 }
 
 #ifdef DEBUG
-static char* const LABEL_NAMES[] = {"UNKNOWN", "EMPTY", "INC", "INC_STR_EXPR",
+static char* LABEL_NAMES[] = {"UNKNOWN", "EMPTY", "INC", "INC_STR_EXPR",
     "EQ", "EQ_STR_EXPR", "REP", "PRINT", "SCOPE_OPEN", "SCOPE_CLOSE"};
 
 void dbg_blist (const char *name, blocklist blist) {
