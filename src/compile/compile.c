@@ -242,7 +242,6 @@ int compile (int debug, const char *in_name,
                 }
                 break;
             case INC:
-            case INC_STR_EXPR:
             case EQ:
             case EQ_STR_EXPR:
                 {

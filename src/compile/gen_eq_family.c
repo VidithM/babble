@@ -33,8 +33,9 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             lsym_info.name_len = l_len;
             lsym_info.size = rsym_size;
             lsym_info.offset = (*frame_size) + rsym_size;
+            lsym_info.category = blk.label - EQ;
             ret = insert_symbol (&stk, lsym_info);
-            (*frame_size) += lsym_info.size;
+            (*frame_size) += WORDSZ_CEIL (lsym_info.size);
         }
     } else {
         rsym = in_buf + blk.hotspots[1];
@@ -78,7 +79,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             lsym_info.category = rsym_info.category;
 
             ret = insert_symbol (&stk, lsym_info);
-            (*frame_size) += lsym_info.size;
+            (*frame_size) += WORDSZ_CEIL (lsym_info.size);
         } else {
             // set
             const char *int_upd_instr = (is_inc ? "add" : "mov");
@@ -99,15 +100,6 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
                         "sub r9, 0x%lx\n"
                         "%s [r9], r8\n", rsym_info.offset, lsym_info.offset, int_upd_instr);
                 } else {
-                    if (rsym_info.size > lsym_info.size) {
-                        char tmp1 = lsym[l_len];
-                        char tmp2 = rsym[r_len];
-                        lsym[l_len] = rsym[r_len] = '\0';
-                        BABBLE_MSG_COMPILE_ERR (start_line, " (out-of-bounds assignment; \"%s\")"
-                            " is of size %ld, whereas \"%s\" is of size %ld\n", lsym,
-                            lsym_info.size, rsym, rsym_info.size);
-                        ret = BABBLE_COMPILE_ERR;
-                    }
                     TYPE_CHECK (lsym_info.category, rsym_info.category);
                     ret = gen_expr (blk, stk, rsym_info, lsym_info, in_buf,
                         &rsym_size, out_file, msg);

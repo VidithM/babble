@@ -35,4 +35,7 @@
     _sym[_len] = tmp;                                                       \
 }
 
+#define WORDSZ 8
+#define WORDSZ_CEIL(n) (WORDSZ * ((n + WORDSZ) / WORDSZ))
+
 #endif

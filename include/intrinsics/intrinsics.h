@@ -1,6 +1,7 @@
 #ifndef INTRINSICS_H
 #define INTRINSICS_H
 
+#include "babble-lang.h"
 #include "intrinsic-info.h"
 
 #define MAX_INTRINSICS 128

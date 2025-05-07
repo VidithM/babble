@@ -5,7 +5,7 @@
 #include "symstack.h"
 
 int gen_expr (block blk, symstack stk, symbol copy_from, symbol copy_to,
-    const char *in_buf, size_t *expr_size, FILE *out, char *msg);
+    char *in_buf, size_t *expr_size, FILE *out_file, char *msg);
 
 int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
     FILE *out_file, char *msg);

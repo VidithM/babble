@@ -7,7 +7,6 @@ enum block_label {
     UNKNOWN,
     EMPTY,
     INC,
-    INC_STR_EXPR,
     EQ,
     EQ_STR_EXPR,
     REP,
