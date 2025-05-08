@@ -279,8 +279,8 @@ int compile (int debug, const char *in_name,
                             "mov rcx, %ld\n", val);
                     } else {
                         if (sym_info.category != INT64) {
-                            BABBLE_MSG_COMPILE_ERR (start_line, "\"rep\" cannot accept a "
-                                "non-integer argument\n");
+                            BABBLE_MSG_COMPILE_ERR (start_line, " (\"rep\" cannot accept a "
+                                "non-integer argument)\n");
                             ret = BABBLE_COMPILE_ERR;
                             goto done;
                         }
@@ -309,7 +309,7 @@ int compile (int debug, const char *in_name,
 done:
     get_nscopes (&nscopes, stk);
     if ((!ret) && (nscopes > 1)) {
-        BABBLE_MSG_COMPILE_ERR (-1, "(scope imbalance)\n");
+        BABBLE_MSG_COMPILE_ERR (-1, " (scope imbalance)\n");
         ret = BABBLE_COMPILE_ERR;
     }
     fprintf (out_file,

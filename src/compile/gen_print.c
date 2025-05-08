@@ -16,24 +16,45 @@ int gen_print (block blk, symstack stk, char *in_buf,
     find_symbol (&sym_info, stk, sym, len);
 
     int64_t val;
+    char *tmp;
     if (sym_info.name == NULL) {
         INTEG_CHECK (sym, len, &val);
         fprintf (out_file,
             "mov rdi, %ld\n", val);
+        GET_INTRINSIC (&tmp, "print_i64");
+        fprintf (out_file, "%s", tmp);
     } else {
         if (sym_info.category == STRING) {
-            size_t str_len = sym_info.size;
-            printf ("Printing a string\n");
+            fprintf (out_file,
+                "mov r9, rbp\n"
+                "sub r9, 0x%lx\n"
+                "mov rdx, %d\n"
+                "mov [r9], dl\n"
+                "sub r9, 0x%lx\n", sym_info.offset - sym_info.size,
+                '\n', sym_info.size);
+            
+            fprintf (out_file,
+                "push rax\n"
+                "push rdi\n"
+                "push rcx\n"
+                "mov rdi, 1\n"
+                "mov rsi, r9\n"
+                "mov rdx, 0x%lx\n"
+                "mov rax, 1\n"
+                "syscall\n"
+                "pop rcx\n"
+                "pop rdi\n"
+                "pop rax\n", sym_info.size + 1);
         } else {
             fprintf (out_file,
                 "mov r9, rbp\n"
                 "sub r9, 0x%lx\n"
                 "mov rdi, [r9]\n", sym_info.offset);
+
+            GET_INTRINSIC (&tmp, "print_i64");
+            fprintf (out_file, "%s", tmp);
         }
     }
-    char *tmp;
-    GET_INTRINSIC (&tmp, "print_i64");
-    fprintf (out_file, "%s", tmp);
 done:
     return ret;
 }

@@ -36,6 +36,6 @@
 }
 
 #define WORDSZ 8
-#define WORDSZ_CEIL(n) (WORDSZ * ((n + WORDSZ) / WORDSZ))
+#define WORDSZ_CEIL(n) (WORDSZ * ((n + WORDSZ - 1) / WORDSZ))
 
 #endif

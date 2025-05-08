@@ -60,48 +60,39 @@ const intrinsic_info intrinsics [] = {
         .symbol = "print_i64",
         .source = 
             "push rax\n"
-            "push rdi\n"
             "push rcx\n"
             "call _print_i64\n"
             "pop rcx\n"
-            "pop rdi\n"
             "pop rax\n",
         .impl = 0
     },
     {
-        .symbol = "_memcpy",
+        .symbol = "_memcpy_impl",
         .source =
-            "; == memcpy [rdx] bytes from ([rsi] ... [rsi + [rdx]]) to ([rdi] ... [rdi + [rdx]])"
-            "mov rax, rdi\n"
-            "mov rbx, rsi\n"
-            "mov r8, [rdx]\n"
-            ".memcpy_loop:\n"
-                "cmp r8, 0x0\n"
-                "jz .memcpy_return\n"
-                "mov rcx, [rax]\n"
-                "mov [rbx], cl\n"
-                "add rax, 0x1\n"
-                "add rbx, 0x1\n"
-                "jmp .memcpy_loop\n"
-            ".memcpy_return:\n"
-                "ret\n",
+            "_memcpy:\n"
+                "; == memcpy rdx bytes from ([rsi] ... [rsi + rdx]) to ([rdi] ... [rdi + rdx])\n"
+                "mov rax, rdi\n"
+                "mov rbx, rsi\n"
+                ".memcpy_loop:\n"
+                    "cmp rdx, 0x0\n"
+                    "jz .memcpy_return\n"
+                    "mov rcx, [rax]\n"
+                    "mov [rbx], cl\n"
+                    "add rax, 0x1\n"
+                    "add rbx, 0x1\n"
+                    "dec rdx\n"
+                    "jmp .memcpy_loop\n"
+                ".memcpy_return:\n"
+                    "ret\n",
         .impl = 1
     },
     {
         .symbol = "memcpy",
-        .source = 
+        .source =
             "push rax\n"
-            "push rbx\n"
             "push rcx\n"
-            "push rdi\n"
-            "push rsi\n"
-            "push rdx\n"
             "call _memcpy\n"
-            "pop rdx\n"
-            "pop rsi\n"
-            "pop rdi\n"
             "pop rcx\n"
-            "pop rbx\n"
             "pop rax\n",
         .impl = 0
     }

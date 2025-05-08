@@ -3,7 +3,7 @@
 
 #include "babble-lang.h"
 
-#define NCHARS 36 // a-z, 0-9
+#define NCHARS 62 // a-z, A-Z, 0-9
 
 enum sym_category {
     INT64,

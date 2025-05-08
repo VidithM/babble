@@ -26,8 +26,11 @@ static size_t char_to_kid (char c) {
     if (c >= 'a' && c <= 'z') {
         return (c - 'a');
     }
+    if (c >= 'A' && c <= 'z') {
+        return (c - 'A') + 26;
+    }
     BABBLE_ASSERT (c >= '0' && c <= '9');
-    return (c - '0' + 26);
+    return (c - '0' + 52);
 }
 
 static void free_symtrie (symtrie *node) {

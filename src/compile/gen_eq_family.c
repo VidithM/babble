@@ -22,6 +22,9 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
     find_symbol (&lsym_info, stk, lsym, l_len);
 
     if (is_expr) {
+        if (lsym_info.name != NULL) {
+            TYPE_CHECK (lsym_info.category, blk.label - EQ);
+        }
         rsym_info.name = NULL;
         ret = gen_expr (blk, stk, rsym_info, lsym_info, in_buf, 
             &rsym_size, out_file, msg);
@@ -32,11 +35,12 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             lsym_info.name = lsym;
             lsym_info.name_len = l_len;
             lsym_info.size = rsym_size;
-            lsym_info.offset = (*frame_size) + rsym_size;
+            lsym_info.offset = (*frame_size) + WORDSZ_CEIL (rsym_size);
             lsym_info.category = blk.label - EQ;
             ret = insert_symbol (&stk, lsym_info);
             (*frame_size) += WORDSZ_CEIL (lsym_info.size);
         }
+        // TODO: Modify lsym size in symstack
     } else {
         rsym = in_buf + blk.hotspots[1];
         r_len = blk.hotspots[2] - blk.hotspots[1] + 1;
@@ -75,7 +79,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             lsym_info.name = lsym;
             lsym_info.name_len = l_len;
             lsym_info.size = rsym_info.size;
-            lsym_info.offset = (*frame_size) + rsym_info.size;
+            lsym_info.offset = (*frame_size) + WORDSZ_CEIL (rsym_info.size);
             lsym_info.category = rsym_info.category;
 
             ret = insert_symbol (&stk, lsym_info);
@@ -101,8 +105,10 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
                         "%s [r9], r8\n", rsym_info.offset, lsym_info.offset, int_upd_instr);
                 } else {
                     TYPE_CHECK (lsym_info.category, rsym_info.category);
+                    BABBLE_BRKPT;
                     ret = gen_expr (blk, stk, rsym_info, lsym_info, in_buf,
                         &rsym_size, out_file, msg);
+                    // TODO: Modify lsym size in symstack
                 }
             }
         }
