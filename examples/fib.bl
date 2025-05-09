@@ -1,0 +1,13 @@
+% Prints the first n Fibonacci numbers
+n = 10;
+
+a = 1;
+b = 0;
+
+rep (n) {
+    print (a);
+    c = a;
+    c += b;
+    b = a;
+    a = c;
+}

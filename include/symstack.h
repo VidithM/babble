@@ -14,7 +14,7 @@ enum sym_category {
 typedef struct symbol {
     const char *name;
     size_t name_len;
-    size_t size;
+    size_t size, cap;
     size_t offset;
     enum sym_category category;
 } symbol;
@@ -26,7 +26,8 @@ void free_symstack (symstack *stk);
 int push_symstack_entry (symstack *stk, size_t rep_id, size_t curr_bottom);
 int pop_symstack_entry (symstack *stk);
 int insert_symbol (symstack *stk, symbol sym);
-void find_symbol (symbol *sym, const symstack stk, const char *symbol, size_t len);
+void find_symbol (symbol *sym, const symstack stk, const char *sym_name, size_t len);
+void set_symbol (symstack *stk, symbol targ, symbol to);
 // TODO: Get rid of below 2?
 void get_curr_frame_bottom (size_t *frame_size, const symstack stk);
 void get_curr_frame_rep_id (size_t *rep_id, const symstack stk);

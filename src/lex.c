@@ -37,7 +37,7 @@ static int push_block (blocklist *blist,
     int ret = BABBLE_OK;
     if (blist->nblocks == blist->cap) {
         ret = resize_blist (blist);
-        if (!ret) {
+        if (ret) {
             return ret;
         }
     }
@@ -211,6 +211,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                 blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[0] = match_res;
                 start = end;
             } else if (match (in_buf, start, end, "print", 5)) {
+                BABBLE_BRKPT;
                 // next should be a '('
                 size_t h1, h2;
                 match_res = find_next (in_buf, start + 5, end);

@@ -3,13 +3,15 @@
 typedef struct symtrie {
     symbol sym; // sym.name == NULL if not present. A valid symbol always has a name,
                 // so this is an acceptable way to encode no symbol.
+                // When updating symbol properties, this is the only copy that will be
+                // modified.
     struct symtrie *kids [NCHARS];
 } symtrie;
 
 typedef struct stack_entry {
     size_t rep_id;
     size_t nsymbols, cap;
-    symbol *symbols;
+    symbol *symbols;        // These symbols will not change even if 
     size_t frame_bottom;
 } stack_entry;
 
@@ -87,22 +89,22 @@ static int symtrie_remove (symtrie *node, symbol sym, size_t idx) {
     return 0;
 }
 
-static void symtrie_find (symbol *sym, symtrie *node, const char *sym_name,
+static void symtrie_find (symbol **sym, symtrie *node, const char *sym_name,
     size_t len, size_t idx) {
     BABBLE_ASSERT (node != NULL);
     BABBLE_ASSERT (sym != NULL);
 
     if (idx == len) {
         if (!node->sym.name) {
-            sym->name = NULL;
+            (*sym) = NULL;
         } else {
-            (*sym) = node->sym;
+            (*sym) = &node->sym;
         }
         return;
     }
     size_t nxt = char_to_kid (sym_name[idx]);
     if (node->kids[nxt] == NULL) {
-        sym->name = NULL;
+        (*sym) = NULL;
         return;
     }
     symtrie_find (sym, node->kids[nxt], sym_name, len, idx + 1);
@@ -248,14 +250,30 @@ void find_symbol (symbol *sym, const symstack stk, const char *sym_name,
     BABBLE_ASSERT (sym_name != NULL);
     BABBLE_ASSERT (len > 0);
 
-    symbol sym_res;
-    symtrie_find (&sym_res, stk->trie, sym_name, len, 0);
-    
-    if (sym_res.name == NULL) {
+    symbol *res;
+    symtrie_find (&res, stk->trie, sym_name, len, 0);
+
+    if (res == NULL) {
         sym->name = NULL;
     } else {
-        (*sym) = sym_res;
+        (*sym) = (*res);
     }
+}
+
+void set_symbol (symstack *stk_out, symbol targ, symbol to) {
+    BABBLE_ASSERT (stk_out != NULL);
+    symstack_opaque *stk = (*stk_out);
+
+    BABBLE_ASSERT ((stk != NULL) && (stk->magic == SYMSTACK_MAGIC_INIT));
+    BABBLE_ASSERT (targ.name != NULL);
+
+    symbol *sym;
+    symtrie_find (&sym, stk->trie, targ.name, targ.name_len, 0);
+
+    BABBLE_ASSERT (sym != NULL);
+
+    // Only the symtrie copy of the symbol changes
+    (*sym) = to;
 }
 
 void get_curr_frame_bottom (size_t *frame_bottom, const symstack stk) {

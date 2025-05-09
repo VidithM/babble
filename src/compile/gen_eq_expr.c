@@ -3,10 +3,10 @@
 #include "codegen.h"
 #include "compile-utils.h"
 
-// Gen code to push a literal expr onto the stack
+// Gen code for expr1 = expr2; expr1 or expr2 may each be or not be a previously defined symbol
 // In the future, when dealing with bool exprs, can use a separate static gen_bexpr, maybe with
 // recursive evaluation
-int gen_expr (block blk, symstack stk,
+int gen_eq_expr (block blk, symstack stk,
     symbol copy_from, symbol copy_to, // if copy_to, pop from the stack at the end
     char *in_buf, size_t *expr_size, FILE *out_file, char *msg) {
     
@@ -22,7 +22,10 @@ int gen_expr (block blk, symstack stk,
     char *tmp;
     
     if (copy_to.name != NULL && copy_from.name != NULL) {
-        if (copy_from.size > copy_to.size) {
+        if (expr_size != NULL) {
+            (*expr_size) = copy_from.size;
+        }
+        if (copy_from.size > copy_to.cap) {
             char tmp1, tmp2;
             char *copy_to_name = in_buf + blk.start;
             char *copy_from_name = in_buf + blk.hotspots[1];
@@ -39,12 +42,17 @@ int gen_expr (block blk, symstack stk,
             ret = BABBLE_COMPILE_ERR;
             goto done;
         }
+        BABBLE_BRKPT;
         fprintf (out_file,
-            "mov rdi, 0x%lx\n"
-            "mov rsi, 0x%lx\n"
-            "mov rdi, %ld\n", copy_to.offset, copy_from.offset, copy_from.size);
+            "mov rdi, rbp\n"
+            "sub rdi, 0x%lx\n"
+            "mov rsi, rbp\n"
+            "sub rsi, 0x%lx\n"
+            "mov rdx, 0x%lx\n", copy_from.offset, copy_to.offset, copy_from.size);
         GET_INTRINSIC (&tmp, "memcpy");
         fprintf (out_file, "%s", tmp);
+
+        return ret;
     }
 
     size_t start, end;
@@ -55,12 +63,15 @@ int gen_expr (block blk, symstack stk,
                     start = blk.hotspots[3], end = blk.hotspots[4];
                     BABBLE_ASSERT (end > start);
                     size_t len = end - start;
-                    (*expr_size) = len;
+                    if (expr_size != NULL) {
+                        (*expr_size) = len;
+                    }
                     if (copy_to.name == NULL) {
+                        fprintf (out_file, "; line %d\n", blk.start_line);
                         size_t sub_amt = WORDSZ_CEIL (len);
                         // Keep stack pointer aligned with word size
                         fprintf (out_file,
-                            "sub rsp, %ld\n", sub_amt - len);
+                            "sub rsp, 0x%lx\n", sub_amt - len);
                         // Make space for newline
                         fprintf (out_file, "sub rsp, 0x1\n");
                         for (size_t i = end - 1; i > start; i--) {
@@ -70,7 +81,7 @@ int gen_expr (block blk, symstack stk,
                                 "mov [rsp], dl\n", in_buf[i]);
                         }
                     } else {
-                        if (len > copy_to.size) {
+                        if (len > copy_to.cap) {
                             char *copy_to_name = in_buf + blk.start;
                             char tmp = copy_to_name[copy_to.name_len];
                             copy_to_name[copy_to.name_len] = '\0';
@@ -87,7 +98,7 @@ int gen_expr (block blk, symstack stk,
                         fprintf (out_file,
                             "mov r9, rbp\n"
                             "sub r9, 0x%lx\n", copy_to.offset - len + 1);
-                        for (size_t i = end; i > start; i--) {
+                        for (size_t i = end - 1; i > start; i--) {
                             fprintf (out_file,
                                 "sub r9, 0x1\n"
                                 "mov rdx, %d\n"
@@ -96,12 +107,14 @@ int gen_expr (block blk, symstack stk,
                     }
                 } else {
                     BABBLE_ASSERT (copy_to.name == NULL);
-                    (*expr_size) = copy_from.size;
+                    if (expr_size != NULL) {
+                        (*expr_size) = copy_from.size;
+                    }
                     size_t sub_amt = WORDSZ_CEIL (copy_from.size);
                     fprintf (out_file,
                         "mov rdi, rbp\n"
                         "sub rdi, 0x%lx\n"
-                        "sub rsp, %ld\n"
+                        "sub rsp, 0x%lx\n"
                         "mov rsi, rsp\n"
                         "mov rdx, 0x%lx\n", copy_from.offset,
                         sub_amt, copy_from.size);

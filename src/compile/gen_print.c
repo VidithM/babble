@@ -30,7 +30,7 @@ int gen_print (block blk, symstack stk, char *in_buf,
                 "sub r9, 0x%lx\n"
                 "mov rdx, %d\n"
                 "mov [r9], dl\n"
-                "sub r9, 0x%lx\n", sym_info.offset - sym_info.size,
+                "sub r9, 0x%lx\n", sym_info.offset - sym_info.size + 1,
                 '\n', sym_info.size);
             
             fprintf (out_file,

@@ -15,6 +15,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
     char *lsym, *rsym;
     size_t l_len, r_len;
     symbol lsym_info, rsym_info;
+    symbol lsym_new_info;
     size_t rsym_size;
 
     lsym = in_buf + start;
@@ -26,7 +27,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             TYPE_CHECK (lsym_info.category, blk.label - EQ);
         }
         rsym_info.name = NULL;
-        ret = gen_expr (blk, stk, rsym_info, lsym_info, in_buf, 
+        ret = gen_eq_expr (blk, stk, rsym_info, lsym_info, in_buf, 
             &rsym_size, out_file, msg);
         
         if (ret) { goto done; }
@@ -35,12 +36,16 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             lsym_info.name = lsym;
             lsym_info.name_len = l_len;
             lsym_info.size = rsym_size;
+            lsym_info.cap = rsym_size;
             lsym_info.offset = (*frame_size) + WORDSZ_CEIL (rsym_size);
             lsym_info.category = blk.label - EQ;
             ret = insert_symbol (&stk, lsym_info);
             (*frame_size) += WORDSZ_CEIL (lsym_info.size);
+        } else {
+            lsym_new_info = lsym_info;
+            lsym_new_info.size = rsym_size;
+            set_symbol (&stk, lsym_info, lsym_new_info);
         }
-        // TODO: Modify lsym size in symstack
     } else {
         rsym = in_buf + blk.hotspots[1];
         r_len = blk.hotspots[2] - blk.hotspots[1] + 1;
@@ -63,6 +68,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
                     "mov r8, %ld\n"
                     "push r8\n", rval);
                 rsym_info.size = 8;
+                rsym_info.cap = 8;
                 rsym_info.category = INT64;
             } else {
                 if (rsym_info.category == INT64) {
@@ -72,13 +78,15 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
                         "mov r8, [r9]\n"
                         "push r8\n", rsym_info.offset);
                 } else {
-                    ret = gen_expr (blk, stk, rsym_info, lsym_info, in_buf,
+                    ret = gen_eq_expr (blk, stk, rsym_info, lsym_info, in_buf,
                         &rsym_size, out_file, msg);
+                    if (ret) { goto done; }
                 }
             }
             lsym_info.name = lsym;
             lsym_info.name_len = l_len;
             lsym_info.size = rsym_info.size;
+            lsym_info.cap = rsym_info.cap;
             lsym_info.offset = (*frame_size) + WORDSZ_CEIL (rsym_info.size);
             lsym_info.category = rsym_info.category;
 
@@ -105,10 +113,14 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
                         "%s [r9], r8\n", rsym_info.offset, lsym_info.offset, int_upd_instr);
                 } else {
                     TYPE_CHECK (lsym_info.category, rsym_info.category);
-                    BABBLE_BRKPT;
-                    ret = gen_expr (blk, stk, rsym_info, lsym_info, in_buf,
-                        &rsym_size, out_file, msg);
-                    // TODO: Modify lsym size in symstack
+
+                    ret = gen_eq_expr (blk, stk, rsym_info, lsym_info, in_buf,
+                        NULL, out_file, msg);
+                    if (ret) { goto done; }
+
+                    lsym_new_info = lsym_info;
+                    lsym_new_info.size = rsym_info.size;
+                    set_symbol (&stk, lsym_info, lsym_new_info);
                 }
             }
         }
