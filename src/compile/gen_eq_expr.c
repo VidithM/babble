@@ -14,7 +14,7 @@ int gen_eq_expr (block blk, symstack stk,
     enum sym_category expr_type;
 
     if (copy_from.name == NULL) {
-        expr_type = blk.label - EQ;
+        expr_type = EXPR_SYMCAT (blk.label);
     } else {
         expr_type = copy_from.category;
     }
@@ -56,6 +56,7 @@ int gen_eq_expr (block blk, symstack stk,
     }
 
     size_t start, end;
+    printf ("passed, expr_type: %d\n", expr_type);
     switch (expr_type) {
         case STRING:
             {
@@ -125,7 +126,6 @@ int gen_eq_expr (block blk, symstack stk,
             break;
         default:
             // The parse step should already validate the expr type
-            BABBLE_BRKPT;
             BABBLE_ASSERT (0);
     }
 done:

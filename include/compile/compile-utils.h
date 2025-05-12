@@ -3,6 +3,9 @@
 
 #include "parse.h"
 
+extern const char* TYPE_NAMES[];
+extern const int BLOCKTYPE_TO_SYMCAT[];
+
 #define SYM_NOT_FOUND(_sym, _len)                                           \
 {                                                                           \
     _sym[_len] = '\0';                                                      \
@@ -14,7 +17,6 @@
 
 #define TYPE_CHECK(a, b)                                                    \
 {                                                                           \
-    char* TYPE_NAMES[] = {"INT64", "STRING"};                               \
     if (a != b) {                                                           \
         ret = BABBLE_COMPILE_ERR;                                           \
         BABBLE_MSG_COMPILE_ERR (start_line,                                 \
@@ -34,6 +36,8 @@
     (*_val) = atoll(_sym);                                                  \
     _sym[_len] = tmp;                                                       \
 }
+
+#define EXPR_SYMCAT(_lex_type) BLOCKTYPE_TO_SYMCAT[_lex_type - EQ]
 
 #define WORDSZ 8
 #define WORDSZ_CEIL(n) (WORDSZ * ((n + WORDSZ - 1) / WORDSZ))

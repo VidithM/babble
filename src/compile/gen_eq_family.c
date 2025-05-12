@@ -7,7 +7,8 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
     int ret = BABBLE_OK;
     size_t start = blk.start;
     int start_line = blk.start_line;
-
+    
+    printf ("passed w/ blk label %d\n", blk.label);
     int is_expr = (blk.label > EQ && blk.label < REP); // Whether this is a literal expr
     int is_inc = (blk.label == INC);
     BABBLE_ASSERT_IMPLIES (is_expr, !is_inc);
@@ -24,7 +25,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
 
     if (is_expr) {
         if (lsym_info.name != NULL) {
-            TYPE_CHECK (lsym_info.category, blk.label - EQ);
+            TYPE_CHECK (lsym_info.category, EXPR_SYMCAT (blk.label));
         }
         rsym_info.name = NULL;
         ret = gen_eq_expr (blk, stk, rsym_info, lsym_info, in_buf, 
@@ -38,7 +39,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             lsym_info.size = rsym_size;
             lsym_info.cap = rsym_size;
             lsym_info.offset = (*frame_size) + WORDSZ_CEIL (rsym_size);
-            lsym_info.category = blk.label - EQ;
+            lsym_info.category = EXPR_SYMCAT (blk.label);
             ret = insert_symbol (&stk, lsym_info);
             (*frame_size) += WORDSZ_CEIL (lsym_info.size);
         } else {

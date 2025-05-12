@@ -244,6 +244,10 @@ int compile (int debug, const char *in_name,
             case INC:
             case EQ:
             case EQ_STR_EXPR:
+            case EQ_BOOL_EXPR_SAME:
+            case EQ_BOOL_EXPR_LE:
+            case EQ_BOOL_EXPR_OR:
+            case EQ_BOOL_EXPR_AND:
                 {
                     ret = gen_eq_family (blist.blocks[i], stk, in_buf, &frame_size,
                         /* should this be &out_file? */ out_file, msg);

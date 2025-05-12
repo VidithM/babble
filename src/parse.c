@@ -104,39 +104,57 @@ int valid_expr (const char *buf, size_t start, size_t end, int terminal) {
 int valid_expr_full (const char *buf, size_t start, size_t end,
     int terminal, size_t *hotspots, int *expr_type) {
     
-    size_t at = start;
+    char *expr_types[2] = {"str", "bool"}; 
+    size_t at, expr_end;
+    
+    if (terminal) {
+        // Ensure expr ends with ';'. This is not needed for integral/sym checks
+        // because this is implied by them being a contiguous sequence of characters
+        at = find_prev (buf, start, end);
+        if (at == -1) { return 0; }
+        if (buf[at] != ';') { return 0; }
+    } else {
+        at = end;
+    }
 
+    at--;
+    // Find end of expr
+    expr_end = find_prev (buf, start, at);
+    if ((expr_end == -1) || (buf[expr_end] != ')')) { return 0; }
+
+    at = start;
     if (!match (buf, at, end, "expr", 4)) {
         return 0;
     }
     at += 4;
 
-    at = find_next_pat (buf, at, end, "(", 1);
-    if (at == -1) { return 0; }
+    at = find_next (buf, at, end);
+    if ((at == -1) || (buf[at] != '(')) { return 0; }
     at++;
 
     at = find_next (buf, at, end);
     if (at == -1) { return 0; }
 
-    int type;
+    int type = -1;
     // TODO: Match against more expr types
-    if (match (buf, at, end, "str", 3)) {
-        type = 0;
-    } else {
-        // Invalid type
+    for (int i = 0; i < sizeof (expr_types) / sizeof (char *); i++) {
+        if (match (buf, at, end, expr_types[i], strlen (expr_types[i]))) {
+            type = i; break;
+        }
+    }
+    
+    if (type == -1) {
         return 0;
     }
     hotspots[0] = at;
 
-    BABBLE_ASSERT (type >= 0 && type <= 0);
-    // TODO: Match against more expr types
-    if (type == 0) {
-        at += 3;
-    }
+    BABBLE_ASSERT (type >= 0 && type <= 1);
+    at += strlen (expr_types[type]);
 
     at = find_next_pat (buf, at, end, ",", 1);
     if (at == -1) { return 0; }
     at++;
+    
     // TODO ...
     if (type == 0) {
         at = find_next (buf, at, end);
@@ -147,20 +165,45 @@ int valid_expr_full (const char *buf, size_t start, size_t end,
         if (at == -1) { return 0; }
         hotspots[2] = at;
         at++;
+    } else {
+        size_t match_res = at;
+        char *ops[4] = {"==", "<", "::", "&&"};
+        int op = -1;
+        for (int i = 0; i < 4; i++) {
+            match_res = find_next_pat (buf, at, end, ops[i], strlen (ops[i]));
+            if (match_res != -1) {
+                op = i; break;
+            }
+        }
+
+        if (op == -1) { return 0; }
+        // Make the type specific
+        type += op;
+
+        size_t ltok_end = find_prev (buf, at, match_res - 1);
+        if (ltok_end == -1) { return 0; }
+        hotspots[2] = ltok_end;
+
+        size_t ltok_start = find_next (buf, at, match_res - 1);
+        BABBLE_ASSERT (ltok_start != -1);
+        hotspots[1] = ltok_start;
+
+        size_t rtok_end = find_prev (buf, match_res + strlen (ops[op]), expr_end - 1);
+        if (rtok_end == -1) { return 0; }
+        hotspots[4] = rtok_end;
+
+        size_t rtok_start = find_next (buf, match_res + strlen (ops[op]), expr_end - 1);
+        BABBLE_ASSERT (rtok_start != -1);
+        hotspots[3] = rtok_start;
+
+        at = rtok_end + 1;
     }
 
-    at = find_next_pat (buf, at, end, ")", 1);
-    if (at == -1) { return 0; }
-    at++;
-
-    if (terminal) {
-        // Ensure expr ends with ';'. This is not needed for integral/sym checks
-        // because this is implied by them being a contiguous sequence of characters
-        at = find_next (buf, at, end);
-        if (at == -1) { return 0; }
-        if (buf[at] != ';') { return 0; }
+    // Ensure no further characters until expr_end
+    at = find_next (buf, at, end);
+    if (at != expr_end) {
+        return 0;
     }
-    
     (*expr_type) = type;
     return 1;
 }

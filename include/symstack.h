@@ -7,8 +7,9 @@
 
 enum sym_category {
     INT64,
-    STRING
-    // FUTURE: BOOL, FUNCTION?
+    STRING,
+    BOOL
+    // FUTURE: FUNCTION?
 };
 
 typedef struct symbol {

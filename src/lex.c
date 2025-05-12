@@ -52,7 +52,9 @@ static int push_block (blocklist *blist,
 
 #ifdef DEBUG
 static char* LABEL_NAMES[] = {"UNKNOWN", "EMPTY", "INC",
-    "EQ", "EQ_STR_EXPR", "REP", "PRINT", "SCOPE_OPEN", "SCOPE_CLOSE"};
+    "EQ", "EQ_STR_EXPR", "EQ_BOOL_EXPR_SAME", "EQ_BOOL_EXPR_LE",
+    "EQ_BOOL_EXPR_OR", "EQ_BOOL_EXPR_AND",
+    "REP", "PRINT", "SCOPE_OPEN", "SCOPE_CLOSE"};
 
 void dbg_blist (const char *name, blocklist blist) {
     printf ("==== DEBUG BLOCKLIST ====\n");
@@ -311,14 +313,11 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                 failed = 1;
                 goto fail;
             }
-
             // Refine the block label
             if (is_expr) {
-                // TODO: Update to include more expr types
-                BABBLE_ASSERT (block_label_offset == 0);
                 if (blist->blocks[i].label == INC) {
                     BABBLE_MSG_COMPILE_ERR (start_line,
-                        " (+= not supported for string exprs)\n");
+                        " (+= not supported for exprs)\n");
                     failed = 1;
                     generic_msg = 0;
                     goto fail;

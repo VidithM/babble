@@ -4,6 +4,7 @@
 #define BABBLE_MSG(...) snprintf (msg, MSG_LEN, __VA_ARGS__);
 #define BABBLE_MSG_COMPILE_ERR(line, ...)                                           \
 {                                                                                   \
+    BABBLE_BRKPT;                                                                   \
     if (line != -1) {                                                               \
         snprintf (msg, MSG_LEN, "Babble error: Compile error on line %d ", line);   \
     } else {                                                                        \
