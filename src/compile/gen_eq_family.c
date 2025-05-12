@@ -7,8 +7,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
     int ret = BABBLE_OK;
     size_t start = blk.start;
     int start_line = blk.start_line;
-    
-    printf ("passed w/ blk label %d\n", blk.label);
+
     int is_expr = (blk.label > EQ && blk.label < REP); // Whether this is a literal expr
     int is_inc = (blk.label == INC);
     BABBLE_ASSERT_IMPLIES (is_expr, !is_inc);
