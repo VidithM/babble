@@ -46,6 +46,8 @@ int gen_print (block blk, symstack stk, char *in_buf,
                 "pop rdi\n"
                 "pop rax\n", sym_info.size + 1);
         } else {
+            BABBLE_ASSERT ((sym_info.category == INT64) ||
+                (sym_info.category == BOOL));
             fprintf (out_file,
                 "mov r9, rbp\n"
                 "sub r9, 0x%lx\n"

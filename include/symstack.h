@@ -8,7 +8,11 @@
 enum sym_category {
     INT64,
     STRING,
-    BOOL
+    BOOL // Equivalent to INT64; this is a different category
+         // due to EXPR_SYMCAT being used to distinguish
+         // expr types in gen_eq_expr. Could instead make
+         // EXPR_SYMCAT reflect the true type and have a separate
+         // expr_category enum in compile-utils.h
     // FUTURE: FUNCTION?
 };
 

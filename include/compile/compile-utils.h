@@ -6,6 +6,9 @@
 extern const char* TYPE_NAMES[];
 extern const int BLOCKTYPE_TO_SYMCAT[];
 
+#define TRUNCATE(_sym, _len) char _trunc_tmp_ ##_sym = _sym[_len]; _sym[_len] = '\0';
+#define UNTRUNCATE(_sym, _len) _sym[_len] = _trunc_tmp_ ##_sym;
+
 #define SYM_NOT_FOUND(_sym, _len)                                           \
 {                                                                           \
     _sym[_len] = '\0';                                                      \

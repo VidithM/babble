@@ -1,5 +1,4 @@
 #include "intrinsics.h"
-
 #include "codegen.h"
 #include "compile-utils.h"
 
@@ -26,19 +25,18 @@ int gen_eq_expr (block blk, symstack stk,
             (*expr_size) = copy_from.size;
         }
         if (copy_from.size > copy_to.cap) {
-            char tmp1, tmp2;
             char *copy_to_name = in_buf + blk.start;
-            char *copy_from_name = in_buf + blk.hotspots[1];
-            tmp1 = copy_to_name[copy_to.name_len];
-            tmp2 = copy_from_name[copy_from.name_len];
-            copy_to_name[copy_to.name_len] = copy_from_name[copy_from.name_len] = '\0';
+            char *copy_from_name = in_buf + blk.hotspots[0];
+
+            TRUNCATE (copy_to_name, copy_to.name_len);
+            TRUNCATE (copy_from_name, copy_from.name_len);
 
             BABBLE_MSG_COMPILE_ERR (blk.start_line,
                 " (cannot copy expr %s of size %ld into expr %s of size %ld)\n",
                 copy_from_name, copy_from.size, copy_to_name, copy_to.size);
             
-            copy_to_name[copy_to.name_len] = tmp1;
-            copy_from_name[copy_from.name_len] = tmp2;
+            UNTRUNCATE (copy_to_name, copy_to.name_len);
+            UNTRUNCATE (copy_from_name, copy_from.name_len);
             ret = BABBLE_COMPILE_ERR;
             goto done;
         }
@@ -55,11 +53,11 @@ int gen_eq_expr (block blk, symstack stk,
         return ret;
     }
 
-    size_t start, end;
-    printf ("passed, expr_type: %d\n", expr_type);
+    int start_line = blk.start_line;
     switch (expr_type) {
         case STRING:
             {
+                size_t start, end;
                 if (copy_from.name == NULL) {
                     start = blk.hotspots[3], end = blk.hotspots[4];
                     BABBLE_ASSERT (end > start);
@@ -68,7 +66,7 @@ int gen_eq_expr (block blk, symstack stk,
                         (*expr_size) = len;
                     }
                     if (copy_to.name == NULL) {
-                        fprintf (out_file, "; line %d\n", blk.start_line);
+                        fprintf (out_file, "; line %d\n", start_line);
                         size_t sub_amt = WORDSZ_CEIL (len);
                         // Keep stack pointer aligned with word size
                         fprintf (out_file,
@@ -87,7 +85,7 @@ int gen_eq_expr (block blk, symstack stk,
                             char tmp = copy_to_name[copy_to.name_len];
                             copy_to_name[copy_to.name_len] = '\0';
 
-                            BABBLE_MSG_COMPILE_ERR (blk.start_line,
+                            BABBLE_MSG_COMPILE_ERR (start_line,
                                 " (attempt to overflow string expr %s of size %ld)\n",
                                 copy_to_name, copy_to.size);
 
@@ -124,6 +122,84 @@ int gen_eq_expr (block blk, symstack stk,
                 }
             }
             break;
+        case BOOL:
+            {
+                size_t ltok_start, ltok_end, rtok_start, rtok_end;
+                size_t lsym_len, rsym_len;
+                char *lsym, *rsym;
+                symbol lsym_info, rsym_info;
+                int64_t lval, rval;
+
+                if (copy_from.name == NULL) {
+                    ltok_start = blk.hotspots[3]; ltok_end = blk.hotspots[4];
+                    rtok_start = blk.hotspots[5]; rtok_end = blk.hotspots[6];
+                    lsym_len = ltok_end - ltok_start + 1;
+                    rsym_len = rtok_end - rtok_start + 1;
+
+                    lsym = in_buf + ltok_start;
+                    rsym = in_buf + rtok_start;
+                    int op = blk.label - EQ_BOOL_EXPR_SAME;
+                    size_t expr_id = blk.start;
+                    
+                    find_symbol (&lsym_info, stk, lsym, lsym_len);
+                    find_symbol (&rsym_info, stk, rsym, rsym_len);
+
+                    if (lsym_info.name == NULL) {
+                        INTEG_CHECK (lsym, lsym_len, &lval);
+                    } else {
+                        if ((lsym_info.category != BOOL) && 
+                            (lsym_info.category != INT64)) {
+                            TRUNCATE (lsym, lsym_len);
+                            BABBLE_MSG_COMPILE_ERR (start_line,
+                                " (cannot use variable \"%s\" of non-integral/bool"
+                                " type in bool expr)\n", lsym);
+                            UNTRUNCATE (lsym, lsym_len);
+                            ret = BABBLE_COMPILE_ERR;
+                            goto done;
+                        }
+                    }
+                    if (rsym_info.name == NULL) {
+                        INTEG_CHECK (rsym, rsym_len, &rval);
+                    } else {
+                        if ((rsym_info.category != BOOL) && 
+                            (rsym_info.category != INT64)) {
+                            TRUNCATE (rsym, rsym_len);
+                            BABBLE_MSG_COMPILE_ERR (start_line,
+                                " (cannot use variable \"%s\" of non-integral/bool"
+                                " type in bool expr)\n", rsym);
+                            UNTRUNCATE (rsym, rsym_len);
+                            ret = BABBLE_COMPILE_ERR;
+                            goto done;
+                        }
+                    }
+
+                    switch (op) {
+                        case EQ_BOOL_EXPR_SAME:
+                            break;
+                        case EQ_BOOL_EXPR_LE:
+                            break;
+                        case EQ_BOOL_EXPR_OR:
+                            break;
+                        case EQ_BOOL_EXPR_AND:
+                            break;
+                        default:
+                            BABBLE_ASSERT (0);
+                    }
+
+                    fprintf (out_file,
+                        ".bool_expr_%ld_true:\n"
+                        "mov r8, 1\n"
+                        ".bool_expr_%ld_false:\n"
+                        "mov r8, 0\n", expr_id, expr_id);
+                    
+                } else {
+                    BABBLE_ASSERT (copy_to.name == NULL);
+                    // treated the same as int64
+
+                    // TODO: Make a gen_eq_int module, use in both gen_eq_family
+                    // and here?
+                }
+            }
         default:
             // The parse step should already validate the expr type
             BABBLE_ASSERT (0);

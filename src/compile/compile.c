@@ -308,6 +308,8 @@ int compile (int debug, const char *in_name,
                     if (ret) { goto done; }
                 }
                 break;
+            default:
+                BABBLE_ASSERT (0);
         }
     }
 done:
