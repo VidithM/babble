@@ -11,7 +11,7 @@ extern const int BLOCKTYPE_TO_SYMCAT[];
 
 #define SYM_NOT_FOUND(_sym, _len)                                           \
 {                                                                           \
-    _sym[_len] = '\0';                                                      \
+    TRUNCATE (_sym, _len);                                                  \
     ret = BABBLE_COMPILE_ERR;                                               \
     BABBLE_MSG_COMPILE_ERR (start_line,                                     \
         " (variable \"%s\" is undefined)\n",  _sym);                        \
@@ -29,16 +29,19 @@ extern const int BLOCKTYPE_TO_SYMCAT[];
     }                                                                       \
 }
 
-#define INTEG_CHECK(_sym, _len, _val)                                       \
+#define INTEG_LIT_CHECK(_sym, _len, _val)                                   \
 {                                                                           \
     if (!(valid_integral (_sym, 0, _len - 1))) {                            \
         SYM_NOT_FOUND (_sym, _len);                                         \
     }                                                                       \
     char tmp = _sym[_len];                                                  \
-    _sym[_len] = '\0';                                                      \
+    TRUNCATE (_sym, _len);                                                  \
     (*_val) = atoll(_sym);                                                  \
-    _sym[_len] = tmp;                                                       \
+    UNTRUNCATE (_sym, _len);                                                \
 }
+
+#define INTEG_TYPE_CHECK(_sym)                                              \
+    ((_sym.category == INT64) || (_sym.category == BOOL))                   \
 
 #define EXPR_SYMCAT(_lex_type) BLOCKTYPE_TO_SYMCAT[_lex_type - EQ]
 

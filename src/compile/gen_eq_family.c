@@ -51,12 +51,6 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
         r_len = blk.hotspots[2] - blk.hotspots[1] + 1;
         find_symbol (&rsym_info, stk, rsym, r_len);
 
-        int64_t rval;
-        // Every valid symbol has a name. A NULL name means the symbol does not exist.
-        if (rsym_info.name == NULL) {
-            // rsym must be a integer literal
-            INTEG_CHECK (rsym, r_len, &rval);
-        }
         if (lsym_info.name == NULL) {
             // lsym is known to be a non-literal
             if (is_inc) {
@@ -64,19 +58,16 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             }
             // assign
             if (rsym_info.name == NULL) {
-                fprintf (out_file,
-                    "mov r8, %ld\n"
-                    "push r8\n", rval);
-                rsym_info.size = 8;
-                rsym_info.cap = 8;
+                ret = gen_eq_int (blk, rsym_info, lsym_info, in_buf,
+                    out_file, msg);
+                if (ret) { goto done; }
+                rsym_info.size = rsym_info.cap = 8;
                 rsym_info.category = INT64;
             } else {
                 if (rsym_info.category == INT64) {
-                    fprintf (out_file,
-                        "mov r9, rbp\n"
-                        "sub r9, 0x%lx\n"
-                        "mov r8, [r9]\n"
-                        "push r8\n", rsym_info.offset);
+                    ret = gen_eq_int (blk, rsym_info, lsym_info, in_buf,
+                        out_file, msg);
+                    if (ret) { goto done; }
                 } else {
                     ret = gen_eq_expr (blk, stk, rsym_info, lsym_info, in_buf,
                         &rsym_size, out_file, msg);
@@ -94,26 +85,16 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             (*frame_size) += WORDSZ_CEIL (lsym_info.size);
         } else {
             // set
-            const char *int_upd_instr = (is_inc ? "add" : "mov");
             if (rsym_info.name == NULL) {
                 TYPE_CHECK (lsym_info.category, INT64);
-                fprintf (out_file,
-                    "mov r8, %ld\n"
-                    "mov r9, rbp\n"
-                    "sub r9, 0x%lx\n"
-                    "%s [r9], r8\n", rval, lsym_info.offset, int_upd_instr);
+                ret = gen_eq_int (blk, rsym_info, lsym_info, in_buf,
+                    out_file, msg);
+                if (ret) { goto done; }
             } else {
                 if (rsym_info.category == INT64) {
-                    fprintf (out_file,
-                        "mov r9, rbp\n"
-                        "sub r9, 0x%lx\n"
-                        "mov r8, [r9]\n"
-                        "mov r9, rbp\n"
-                        "sub r9, 0x%lx\n"
-                        "%s [r9], r8\n", rsym_info.offset, lsym_info.offset, int_upd_instr);
+                    ret = gen_eq_int (blk, rsym_info, lsym_info, in_buf,
+                        out_file, msg);
                 } else {
-                    TYPE_CHECK (lsym_info.category, rsym_info.category);
-
                     ret = gen_eq_expr (blk, stk, rsym_info, lsym_info, in_buf,
                         NULL, out_file, msg);
                     if (ret) { goto done; }

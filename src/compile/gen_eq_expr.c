@@ -2,10 +2,7 @@
 #include "codegen.h"
 #include "compile-utils.h"
 
-// Gen code for expr1 = expr2; expr1 or expr2 may each be or not be a previously defined symbol
-// In the future, when dealing with bool exprs, can use a separate static gen_bexpr, maybe with
-// recursive evaluation
-int gen_eq_expr (block blk, symstack stk,
+int gen_eq_expr (block blk, const symstack stk,
     symbol copy_from, symbol copy_to, // if copy_to, pop from the stack at the end
     char *in_buf, size_t *expr_size, FILE *out_file, char *msg) {
     
@@ -35,12 +32,10 @@ int gen_eq_expr (block blk, symstack stk,
                 " (cannot copy expr %s of size %ld into expr %s of size %ld)\n",
                 copy_from_name, copy_from.size, copy_to_name, copy_to.size);
             
-            UNTRUNCATE (copy_to_name, copy_to.name_len);
-            UNTRUNCATE (copy_from_name, copy_from.name_len);
             ret = BABBLE_COMPILE_ERR;
             goto done;
         }
-        BABBLE_BRKPT;
+        
         fprintf (out_file,
             "mov rdi, rbp\n"
             "sub rdi, 0x%lx\n"
@@ -130,6 +125,8 @@ int gen_eq_expr (block blk, symstack stk,
                 symbol lsym_info, rsym_info;
                 int64_t lval, rval;
 
+                (*expr_size) = 8;
+
                 if (copy_from.name == NULL) {
                     ltok_start = blk.hotspots[3]; ltok_end = blk.hotspots[4];
                     rtok_start = blk.hotspots[5]; rtok_end = blk.hotspots[6];
@@ -138,14 +135,16 @@ int gen_eq_expr (block blk, symstack stk,
 
                     lsym = in_buf + ltok_start;
                     rsym = in_buf + rtok_start;
-                    int op = blk.label - EQ_BOOL_EXPR_SAME;
+                    int op = blk.label;
                     size_t expr_id = blk.start;
                     
                     find_symbol (&lsym_info, stk, lsym, lsym_len);
                     find_symbol (&rsym_info, stk, rsym, rsym_len);
 
                     if (lsym_info.name == NULL) {
-                        INTEG_CHECK (lsym, lsym_len, &lval);
+                        INTEG_LIT_CHECK (lsym, lsym_len, &lval);
+                        fprintf (out_file,
+                            "mov r8, %ld\n", lval);
                     } else {
                         if ((lsym_info.category != BOOL) && 
                             (lsym_info.category != INT64)) {
@@ -153,13 +152,18 @@ int gen_eq_expr (block blk, symstack stk,
                             BABBLE_MSG_COMPILE_ERR (start_line,
                                 " (cannot use variable \"%s\" of non-integral/bool"
                                 " type in bool expr)\n", lsym);
-                            UNTRUNCATE (lsym, lsym_len);
                             ret = BABBLE_COMPILE_ERR;
                             goto done;
                         }
+                        fprintf (out_file,
+                            "mov r10, rbp\n"
+                            "sub r10, 0x%lx\n"
+                            "mov r8, [r10]\n", lsym_info.offset);
                     }
                     if (rsym_info.name == NULL) {
-                        INTEG_CHECK (rsym, rsym_len, &rval);
+                        INTEG_LIT_CHECK (rsym, rsym_len, &rval);
+                        fprintf (out_file,
+                            "mov r9, %ld\n", rval);
                     } else {
                         if ((rsym_info.category != BOOL) && 
                             (rsym_info.category != INT64)) {
@@ -167,39 +171,76 @@ int gen_eq_expr (block blk, symstack stk,
                             BABBLE_MSG_COMPILE_ERR (start_line,
                                 " (cannot use variable \"%s\" of non-integral/bool"
                                 " type in bool expr)\n", rsym);
-                            UNTRUNCATE (rsym, rsym_len);
                             ret = BABBLE_COMPILE_ERR;
                             goto done;
                         }
+                        fprintf (out_file,
+                            "mov r10, rbp\n"
+                            "sub r10, 0x%lx\n"
+                            "mov r9, [r10]\n", rsym_info.offset);
                     }
 
                     switch (op) {
                         case EQ_BOOL_EXPR_SAME:
+                            {
+                                fprintf (out_file,
+                                    "cmp r8, r9\n"
+                                    "jz .bool_expr_%ld_true\n", expr_id);
+                            }
                             break;
                         case EQ_BOOL_EXPR_LE:
+                            {
+                                fprintf (out_file,
+                                    "cmp r8, r9\n"
+                                    "js .bool_expr_%ld_true\n", expr_id);
+                            }
                             break;
                         case EQ_BOOL_EXPR_OR:
+                            {
+                                fprintf (out_file,
+                                    "or r8, r9\n"
+                                    "cmp r8, 0\n"
+                                    "jnz .bool_expr_%ld_true\n", expr_id);
+                            }
                             break;
                         case EQ_BOOL_EXPR_AND:
+                            {
+                                fprintf (out_file,
+                                    "cmp r8, 0\n"
+                                    "jz .bool_expr_%ld_false\n"
+                                    "cmp r9, 0\n"
+                                    "jnz .bool_expr_%ld_true\n",
+                                    expr_id, expr_id);
+                            }
                             break;
                         default:
                             BABBLE_ASSERT (0);
                     }
 
                     fprintf (out_file,
+                        ".bool_expr_%ld_false:\n"
+                        "mov r8, 0\n"
+                        "jmp .bool_expr_%ld_done\n"
                         ".bool_expr_%ld_true:\n"
                         "mov r8, 1\n"
-                        ".bool_expr_%ld_false:\n"
-                        "mov r8, 0\n", expr_id, expr_id);
-                    
+                        ".bool_expr_%ld_done:\n",
+                        expr_id, expr_id, expr_id, expr_id);
+
+                    if (copy_to.name == NULL) {
+                        fprintf (out_file, "push r8\n");
+                    } else {
+                        fprintf (out_file,
+                            "mov r9, rbp\n"
+                            "sub r9, 0x%lx\n"
+                            "mov [r9], r8\n", copy_to.offset);
+                    }
                 } else {
                     BABBLE_ASSERT (copy_to.name == NULL);
-                    // treated the same as int64
-
-                    // TODO: Make a gen_eq_int module, use in both gen_eq_family
-                    // and here?
+                    ret = gen_eq_int (blk, copy_from, copy_to, in_buf,
+                        out_file, msg);
                 }
             }
+            break;
         default:
             // The parse step should already validate the expr type
             BABBLE_ASSERT (0);

@@ -3,7 +3,7 @@
 
 #include "intrinsics.h"
 
-int gen_print (block blk, symstack stk, char *in_buf,
+int gen_print (block blk, const symstack stk, char *in_buf,
     FILE *out_file, char *msg) {
     
     int ret = BABBLE_OK;
@@ -18,7 +18,7 @@ int gen_print (block blk, symstack stk, char *in_buf,
     int64_t val;
     char *tmp;
     if (sym_info.name == NULL) {
-        INTEG_CHECK (sym, len, &val);
+        INTEG_LIT_CHECK (sym, len, &val);
         fprintf (out_file,
             "mov rdi, %ld\n", val);
         GET_INTRINSIC (&tmp, "print_i64");
@@ -46,8 +46,7 @@ int gen_print (block blk, symstack stk, char *in_buf,
                 "pop rdi\n"
                 "pop rax\n", sym_info.size + 1);
         } else {
-            BABBLE_ASSERT ((sym_info.category == INT64) ||
-                (sym_info.category == BOOL));
+            BABBLE_ASSERT (INTEG_TYPE_CHECK (sym_info));
             fprintf (out_file,
                 "mov r9, rbp\n"
                 "sub r9, 0x%lx\n"

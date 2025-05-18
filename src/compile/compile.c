@@ -278,7 +278,7 @@ int compile (int debug, const char *in_name,
 
                     int64_t val;
                     if (sym_info.name == NULL) {
-                        INTEG_CHECK (sym, len, &val);
+                        INTEG_LIT_CHECK (sym, len, &val);
                         fprintf (out_file,
                             "mov rcx, %ld\n", val);
                     } else {
