@@ -91,6 +91,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
                     out_file, msg);
                 if (ret) { goto done; }
             } else {
+                TYPE_CHECK (lsym_info.category, rsym_info.category);
                 if (rsym_info.category == INT64) {
                     ret = gen_eq_int (blk, rsym_info, lsym_info, in_buf,
                         out_file, msg);
