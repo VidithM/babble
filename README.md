@@ -34,7 +34,7 @@ rep (x) {
     iter += 1;
 }
 ```
-* See more examples in [examples/](https://github.com/vidithm/babble/tree/v1.4/examples)
+* See more examples in [examples/](https://github.com/vidithm/babble/tree/main/examples)
 
 ### Future plans:
 **v1.4** (continued updates):
