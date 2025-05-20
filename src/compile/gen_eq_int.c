@@ -25,8 +25,13 @@ int gen_eq_int (block blk, symbol copy_from, symbol copy_to,
     if (copy_from.name == NULL) {
         INTEG_LIT_CHECK (rsym, r_len, &rval);
     }
+
     if ((copy_to.name == NULL) && (blk.label == INC)) {
         SYM_NOT_FOUND (lsym, l_len);
+    }
+
+    if (copy_to.name != NULL) {
+        TYPE_CHECK (INT64, copy_to.category);
     }
 
     if (copy_to.name == NULL) {

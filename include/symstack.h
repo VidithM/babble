@@ -2,6 +2,7 @@
 #define SYMSTACK_H
 
 #include "babble-lang.h"
+#include "lex.h"
 
 #define NCHARS 62 // a-z, A-Z, 0-9
 
@@ -28,14 +29,16 @@ typedef struct symstack_opaque* symstack;
 
 int init_symstack (symstack *stk);
 void free_symstack (symstack *stk);
-int push_symstack_entry (symstack *stk, size_t rep_id, size_t curr_bottom);
+int push_symstack_entry (symstack *stk, enum block_label ctrl_type, int ctrl_id,
+    size_t curr_bottom);
 int pop_symstack_entry (symstack *stk);
 int insert_symbol (symstack *stk, symbol sym);
 void find_symbol (symbol *sym, const symstack stk, const char *sym_name, size_t len);
 void set_symbol (symstack *stk, symbol targ, symbol to);
 // TODO: Get rid of below 2?
 void get_curr_frame_bottom (size_t *frame_size, const symstack stk);
-void get_curr_frame_rep_id (size_t *rep_id, const symstack stk);
+void get_curr_frame_control_id (enum block_label *ctrl_type, int *id,
+    const symstack stk);
 void get_nscopes (size_t *nscopes, const symstack stk);
 
 #endif

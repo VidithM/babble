@@ -1,5 +1,7 @@
 #include "symstack.h"
 
+#define SYMSTACK_MAGIC_INIT 0x10716905
+
 typedef struct symtrie {
     symbol sym; // sym.name == NULL if not present. A valid symbol always has a name,
                 // so this is an acceptable way to encode no symbol.
@@ -9,13 +11,12 @@ typedef struct symtrie {
 } symtrie;
 
 typedef struct stack_entry {
-    size_t rep_id;
+    enum block_label ctrl_type;
+    int ctrl_id;
     size_t nsymbols, cap;
     symbol *symbols;        // These symbols will not change even if 
     size_t frame_bottom;
 } stack_entry;
-
-#define SYMSTACK_MAGIC_INIT 0x10716905
 
 typedef struct symstack_opaque {
     size_t nscopes, cap;
@@ -141,7 +142,7 @@ int init_symstack (symstack *stk_out) {
     stk->magic = SYMSTACK_MAGIC_INIT;
     stk->nscopes = 0;
     stk->cap = 0;
-    push_symstack_entry (stk_out, -1, 0);
+    push_symstack_entry (stk_out, -1, -1, 0);
 
     stk->trie = (symtrie *) malloc (sizeof (symtrie));
     if (stk->scopes == NULL || stk->trie == NULL) {
@@ -152,9 +153,10 @@ int init_symstack (symstack *stk_out) {
     return BABBLE_OK;
 }
 
-int push_symstack_entry (symstack *stk_out, size_t rep_id, size_t curr_bottom) {
-    BABBLE_ASSERT (stk_out != NULL);
+int push_symstack_entry (symstack *stk_out, enum block_label ctrl_type,
+    int ctrl_id, size_t curr_bottom) {
 
+    BABBLE_ASSERT (stk_out != NULL);
     // May segfault. OK, since that would be a bug in the caller (who owns
     // the symstack) and not this code.
     symstack_opaque *stk = (*stk_out);
@@ -179,7 +181,8 @@ int push_symstack_entry (symstack *stk_out, size_t rep_id, size_t curr_bottom) {
     if (stk->nscopes > 0) {
         stk->scopes[stk->nscopes - 1].frame_bottom = curr_bottom;
     }
-    stk->scopes[stk->nscopes].rep_id = rep_id;
+    stk->scopes[stk->nscopes].ctrl_type = ctrl_type;
+    stk->scopes[stk->nscopes].ctrl_id = ctrl_id;
     stk->scopes[stk->nscopes].cap = 0;
     stk->scopes[stk->nscopes].nsymbols = 0;
     stk->scopes[stk->nscopes].symbols = NULL;
@@ -285,13 +288,17 @@ void get_curr_frame_bottom (size_t *frame_bottom, const symstack stk) {
     (*frame_bottom) = stk->scopes[stk->nscopes - 1].frame_bottom;
 }
 
-void get_curr_frame_rep_id (size_t *rep_id, const symstack stk) {
+void get_curr_frame_control_id (enum block_label *type, int *id, const symstack stk) {
 
     BABBLE_ASSERT ((stk != NULL) && (stk->magic == SYMSTACK_MAGIC_INIT));
-    BABBLE_ASSERT (rep_id != NULL);
-    BABBLE_ASSERT (stk->nscopes > 0);
+    BABBLE_ASSERT ((type != NULL) || (id != NULL));
 
-    (*rep_id) = stk->scopes[stk->nscopes - 1].rep_id;
+    if (type != NULL) {
+        (*type) = stk->scopes[stk->nscopes - 1].ctrl_type;
+    }
+    if (id != NULL) {
+        (*id) = stk->scopes[stk->nscopes - 1].ctrl_id;
+    }
 }
 
 void get_nscopes (size_t *nscopes, const symstack stk) {

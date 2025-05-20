@@ -1,0 +1,58 @@
+% Program to check if the input `n` is prime
+n = 7905;
+i = 2;
+
+go = 1;
+isprime = 1;
+notprime = 0;
+
+wrep (go) {
+    % Compute i * i
+    mul = i;
+    rep (i) {
+        mul += i;
+    }
+    
+    % Determine if we should stop
+    mulbig = expr (bool, n < mul);
+    mulsmall = expr (bool, mul < n);
+    muleq = expr (bool, mul == n);
+    mulok = expr (bool, mulsmall :: muleq);
+
+    % Stop if mul > n
+    if (mulbig) {
+        go = 0;
+    }
+
+    if (mulok) {
+        sum = 0;
+        sumok = expr (bool, 1 :: 1);
+        factor = 0;
+        % Determine if i divides n
+        wrep (sumok) {
+            sumeq = expr (bool, sum == n);
+            if (sumeq) {
+                factor = 1;
+            } 
+            cont = expr (bool, sum < n);
+            sumok = expr (bool, sumok && cont);
+            sum += i;
+        }
+        if (factor) {
+            % Quit if a factor is found
+            isprime = 0;
+            notprime = 1;
+            go = 0;
+        }
+    }
+    i += 1;
+}
+
+if (isprime) {
+    str = expr (str, "n is prime!");
+    print (str);
+}
+if (notprime) {
+    str = expr (str, "n is not prime!");
+    print (str);
+}

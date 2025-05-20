@@ -170,8 +170,9 @@ int compile (int debug, const char *in_name,
     fprintf (out_file,
         "push rbp\n"
         "mov rbp, rsp\n");
-
-    size_t nxt_rep_id = 0;
+    
+    enum block_label ctrl_type;
+    int curr_rep_id = -1, curr_cond_id = -1, curr_wrep_id = -1, nxt_rep_id = 0;
     size_t frame_size = 0;
     size_t nscopes;
     for (size_t i = 0; i < blist.nblocks; i++) {
@@ -186,23 +187,33 @@ int compile (int debug, const char *in_name,
         switch (blist.blocks[i].label) {
             case SCOPE_OPEN:
                 {
-                    size_t curr_rep_id;
-                    get_curr_frame_rep_id (&curr_rep_id, stk);
+                    get_curr_frame_control_id (&ctrl_type, &curr_rep_id, stk);
+                    if (ctrl_type != REP) { curr_rep_id = -1; }
 
                     if (curr_rep_id != -1) {
-                        fprintf (out_file,
-                            "push rcx\n");
+                        fprintf (out_file, "push rcx\n");
                         frame_size += 8;
                     }
 
-                    ret = push_symstack_entry (&stk, -1, frame_size);
+                    ret = push_symstack_entry (&stk, -1, -1, frame_size);
                     if (ret) { goto done; }
                 }
                 break;
             case SCOPE_CLOSE:
                 {
-                    size_t curr_rep_id;
-                    get_curr_frame_rep_id (&curr_rep_id, stk);
+                    curr_rep_id = curr_wrep_id = curr_cond_id = -1;
+                    get_curr_frame_control_id (&ctrl_type, NULL, stk);
+                    
+                    switch (ctrl_type) {
+                        case REP:
+                            get_curr_frame_control_id (NULL, &curr_rep_id, stk);
+                            break;
+                        case WREP:
+                            get_curr_frame_control_id (NULL, &curr_wrep_id, stk);
+                            break;
+                        case COND:
+                            get_curr_frame_control_id (NULL, &curr_cond_id, stk);
+                    }
 
                     ret = pop_symstack_entry (&stk);
                     if (ret) {
@@ -212,8 +223,9 @@ int compile (int debug, const char *in_name,
                         goto done;
                     }
 
-                    size_t prev_rep_id;
-                    get_curr_frame_rep_id (&prev_rep_id, stk);
+                    int prev_rep_id = -1;
+                    get_curr_frame_control_id (&ctrl_type, &prev_rep_id, stk);
+                    if (ctrl_type != REP) { prev_rep_id = -1; }
 
                     size_t frame_bottom;
                     get_curr_frame_bottom (&frame_bottom, stk);
@@ -227,11 +239,20 @@ int compile (int debug, const char *in_name,
                         "mov rsp, rbp\n"
                         "sub rsp, 0x%lx\n", frame_bottom);
                     frame_size = frame_bottom;
-
+                    
                     if (curr_rep_id != -1) {
                         fprintf (out_file,
-                            "jmp .loop_%ld_body\n"
-                            ".loop_%ld_break:\n", curr_rep_id, curr_rep_id);
+                            "jmp .rep_%d_body\n"
+                            ".rep_%d_break:\n", curr_rep_id, curr_rep_id);
+                    }
+                    if (curr_wrep_id != -1) {
+                        fprintf (out_file,
+                            "jmp .wrep_%d_body\n"
+                            ".wrep_%d_break:\n", curr_wrep_id, curr_wrep_id);
+                    }
+                    if (curr_cond_id != -1) {
+                        fprintf (out_file,
+                            ".cond_%d_done:\n", curr_cond_id);
                     }
 
                     if (prev_rep_id != -1) {
@@ -256,15 +277,16 @@ int compile (int debug, const char *in_name,
                 break;
             case REP:
                 {
-                    size_t curr_rep_id;
-                    get_curr_frame_rep_id (&curr_rep_id, stk);
+                    curr_rep_id = -1;
+                    get_curr_frame_control_id (&ctrl_type, &curr_rep_id, stk);
+                    if (ctrl_type != REP) { curr_rep_id = -1; }
+
                     if (curr_rep_id != -1) {
-                        fprintf (out_file,
-                            "push rcx\n");
+                        fprintf (out_file, "push rcx\n");
                         frame_size += 8;
                     }
-                    
-                    ret = push_symstack_entry (&stk, nxt_rep_id, frame_size);
+
+                    ret = push_symstack_entry (&stk, REP, nxt_rep_id, frame_size);
                     if (ret) { goto done; }
 
                     hot[0] = blist.blocks[i].hotspots[0];
@@ -295,11 +317,19 @@ int compile (int debug, const char *in_name,
                     }
 
                     fprintf (out_file,
-                        ".loop_%ld_body:\n"
+                        ".rep_%d_body:\n"
                         "cmp rcx, 0\n"
-                        "jz .loop_%ld_break\n", nxt_rep_id, nxt_rep_id);
+                        "jz .rep_%d_break\n", nxt_rep_id, nxt_rep_id);
                     
                     nxt_rep_id++;
+                }
+                break;
+            case COND:
+            case WREP:
+                {
+                    ret = gen_cond_family (blist.blocks[i], stk, in_buf, &frame_size,
+                        out_file, msg);
+                    if (ret) { goto done; }
                 }
                 break;
             case PRINT:

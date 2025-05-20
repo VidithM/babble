@@ -14,6 +14,8 @@ enum block_label {
     EQ_BOOL_EXPR_OR,
     EQ_BOOL_EXPR_AND,
     REP,
+    COND,
+    WREP,
     PRINT,
     SCOPE_OPEN,
     SCOPE_CLOSE

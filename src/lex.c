@@ -54,7 +54,7 @@ static int push_block (blocklist *blist,
 static char* LABEL_NAMES[] = {"UNKNOWN", "EMPTY", "INC",
     "EQ", "EQ_STR_EXPR", "EQ_BOOL_EXPR_SAME", "EQ_BOOL_EXPR_LE",
     "EQ_BOOL_EXPR_OR", "EQ_BOOL_EXPR_AND",
-    "REP", "PRINT", "SCOPE_OPEN", "SCOPE_CLOSE"};
+    "REP", "COND", "WREP", "PRINT", "SCOPE_OPEN", "SCOPE_CLOSE"};
 
 void dbg_blist (const char *name, blocklist blist) {
     printf ("==== DEBUG BLOCKLIST ====\n");
@@ -146,10 +146,13 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
 
             // Try to consume REP
             size_t match_res;
-            if (match (in_buf, start, end, "rep", 3)) {
+            if (match (in_buf, start, end, "wrep", 4) ||
+                match (in_buf, start, end, "rep", 3) ||
+                match (in_buf, start, end, "if", 2)) {
                 // next should be a '('
                 size_t h1, h2;
-                match_res = find_next (in_buf, start + 3, end);
+                int len = (in_buf[start] == 'w' ? 4 : (in_buf[start] == 'r' ? 3 : 2));
+                match_res = find_next (in_buf, start + len, end);
                 // If fails, must be a terminal
                 if (match_res == -1) { goto terminal; }
                 if (in_buf[match_res] != '(') { goto terminal; }
@@ -169,7 +172,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                     start,
                     match_res,
                     line,
-                    REP);
+                    (len == 4 ? WREP : (len == 3 ? REP : COND)));
                 blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[0] = h1;
                 blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[1] = h2;
 
@@ -213,7 +216,6 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                 blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[0] = match_res;
                 start = end;
             } else if (match (in_buf, start, end, "print", 5)) {
-                BABBLE_BRKPT;
                 // next should be a '('
                 size_t h1, h2;
                 match_res = find_next (in_buf, start + 5, end);
@@ -328,7 +330,12 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
             }
 
         }
-        if (blist->blocks[i].label == REP || blist->blocks[i].label == PRINT) {
+        // Refine single-arg blocks
+        if ((blist->blocks[i].label == REP) ||
+            (blist->blocks[i].label == WREP) ||
+            (blist->blocks[i].label == PRINT) ||
+            (blist->blocks[i].label == COND)) {
+
             size_t h1 = blist->blocks[i].hotspots[0];
             size_t h2 = blist->blocks[i].hotspots[1];
             size_t tok_start = find_next (in_buf, h1 + 1, h2 - 1);
