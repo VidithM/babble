@@ -1,2 +1,2 @@
-msg = expr (str, "Hello World!");
+msg = expr (str, "Hello there\n");
 print (msg);

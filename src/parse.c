@@ -95,13 +95,13 @@ int valid_integral (const char *buf, size_t start, size_t end) {
     return 1;
 }
 
-int valid_expr (const char *buf, size_t start, size_t end, int terminal) {
+int valid_expr (char *buf, size_t start, size_t end, int terminal) {
     #include "lex.h"
     size_t dummy[MAX_HOTSPOTS];
     return valid_expr_full (buf, start, end, terminal, dummy, (int *) dummy);
 }
 
-int valid_expr_full (const char *buf, size_t start, size_t end,
+int valid_expr_full (char *buf, size_t start, size_t end,
     int terminal, size_t *hotspots, int *expr_type) {
     
     char *expr_types[2] = {"str", "bool"}; 
@@ -157,13 +157,34 @@ int valid_expr_full (const char *buf, size_t start, size_t end,
     
     // TODO ...
     if (type == 0) {
+        size_t start, put;
         at = find_next (buf, at, end);
         if ((at == -1) || (buf[at] != '\"')) { return 0; }
-        hotspots[1] = at;
-        at++;
+        start = put = hotspots[1] = at;
+        at++; put++; start++;
         at = find_next_pat (buf, at, end, "\"", 1);
         if (at == -1) { return 0; }
-        hotspots[2] = at;
+        // Replace escape chars
+        for (size_t i = start; i < at; i++) {
+            if (buf[i] == '\\') {
+                if (i == (at - 1)) { return 0; }
+                switch (buf[i + 1]) {
+                    case 'n':
+                        {
+                            buf[put] = '\n';
+                            i++;
+                        }
+                        break;
+                    default:
+                        return 0;
+                }
+            } else {
+                buf[put] = buf[i];
+            }
+            put++;
+        }
+        // Mark actual end of string in HS; parsing continues from `at + 1`
+        hotspots[2] = put;
         at++;
     } else {
         size_t match_res = at;

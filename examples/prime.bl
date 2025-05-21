@@ -4,7 +4,6 @@ i = 2;
 
 go = 1;
 isprime = 1;
-notprime = 0;
 
 wrep (go) {
     % Compute i * i
@@ -41,18 +40,14 @@ wrep (go) {
         if (factor) {
             % Quit if a factor is found
             isprime = 0;
-            notprime = 1;
             go = 0;
         }
     }
     i += 1;
 }
 
+str = expr (str, "n is not prime!\n");
 if (isprime) {
-    str = expr (str, "n is prime!");
-    print (str);
+    str = expr (str, "n is prime!\n");
 }
-if (notprime) {
-    str = expr (str, "n is not prime!");
-    print (str);
-}
+print (str);

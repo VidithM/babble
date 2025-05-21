@@ -26,25 +26,21 @@ int gen_print (block blk, const symstack stk, char *in_buf,
     } else {
         if (sym_info.category == STRING) {
             fprintf (out_file,
-                "mov r9, rbp\n"
-                "sub r9, 0x%lx\n"
-                "mov rdx, %d\n"
-                "mov [r9], dl\n"
-                "sub r9, 0x%lx\n", sym_info.offset - sym_info.size + 1,
-                '\n', sym_info.size);
+                "mov rdi, rbp\n"
+                "sub rdi, 0x%lx\n", sym_info.offset);
+            
+            GET_INTRINSIC (&tmp, "null_scan");
+            fprintf (out_file, "%s", tmp);
             
             fprintf (out_file,
-                "push rax\n"
-                "push rdi\n"
                 "push rcx\n"
+                "mov rsi, rbp\n"
+                "sub rsi, 0x%lx\n"
                 "mov rdi, 1\n"
-                "mov rsi, r9\n"
-                "mov rdx, 0x%lx\n"
+                "mov rdx, rax\n"
                 "mov rax, 1\n"
                 "syscall\n"
-                "pop rcx\n"
-                "pop rdi\n"
-                "pop rax\n", sym_info.size + 1);
+                "pop rcx\n", sym_info.offset);
         } else {
             BABBLE_ASSERT (INTEG_TYPE_CHECK (sym_info));
             fprintf (out_file,

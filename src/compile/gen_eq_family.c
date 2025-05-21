@@ -36,7 +36,6 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             lsym_info.name = lsym;
             lsym_info.name_len = l_len;
             lsym_info.size = rsym_size;
-            lsym_info.cap = rsym_size;
             lsym_info.offset = (*frame_size) + WORDSZ_CEIL (rsym_size);
             lsym_info.category = EXPR_SYMCAT (blk.label);
             ret = insert_symbol (&stk, lsym_info);
@@ -61,7 +60,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
                 ret = gen_eq_int (blk, rsym_info, lsym_info, in_buf,
                     out_file, msg);
                 if (ret) { goto done; }
-                rsym_info.size = rsym_info.cap = 8;
+                rsym_info.size = 8;
                 rsym_info.category = INT64;
             } else {
                 if (rsym_info.category == INT64) {
@@ -77,7 +76,6 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             lsym_info.name = lsym;
             lsym_info.name_len = l_len;
             lsym_info.size = rsym_info.size;
-            lsym_info.cap = rsym_info.cap;
             lsym_info.offset = (*frame_size) + WORDSZ_CEIL (rsym_info.size);
             lsym_info.category = rsym_info.category;
 
@@ -98,10 +96,6 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
                     ret = gen_eq_expr (blk, stk, rsym_info, lsym_info, in_buf,
                         NULL, out_file, msg);
                     if (ret) { goto done; }
-
-                    lsym_new_info = lsym_info;
-                    lsym_new_info.size = rsym_info.size;
-                    set_symbol (&stk, lsym_info, lsym_new_info);
                 }
             }
         }

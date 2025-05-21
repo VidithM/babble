@@ -20,7 +20,7 @@ enum sym_category {
 typedef struct symbol {
     const char *name;
     size_t name_len;
-    size_t size, cap;
+    size_t size;
     size_t offset;
     enum sym_category category;
 } symbol;

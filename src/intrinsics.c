@@ -59,11 +59,9 @@ const intrinsic_info intrinsics [] = {
     {
         .symbol = "print_i64",
         .source = 
-            "push rax\n"
             "push rcx\n"
             "call _print_i64\n"
-            "pop rcx\n"
-            "pop rax\n",
+            "pop rcx\n",
         .impl = 0
     },
     {
@@ -89,13 +87,34 @@ const intrinsic_info intrinsics [] = {
     {
         .symbol = "memcpy",
         .source =
-            "push rax\n"
             "push rcx\n"
             "call _memcpy\n"
-            "pop rcx\n"
-            "pop rax\n",
+            "pop rcx\n",
         .impl = 0
+    },
+    {
+        .symbol = "_null_scan_impl",
+        .source =
+            "_null_scan:\n"
+                "mov rax, 0\n"
+                ".null_scan_body:\n"
+                    "mov rdx, [rdi]\n"
+                    "cmp dl, 0x0\n"
+                    "jz .null_scan_done\n"
+                    "inc rax\n"
+                    "inc rdi\n"
+                    "jmp .null_scan_body\n"
+                ".null_scan_done:\n"
+                    "ret\n",
+        .impl = 1
+                    
+    },
+    {
+        .symbol = "null_scan",
+        .source =
+            "call _null_scan\n",
+        .impl = 1
     }
 };
 
-const size_t N_INTRINSICS = 4;
+const size_t N_INTRINSICS = 6;

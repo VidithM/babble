@@ -21,7 +21,7 @@ int gen_eq_expr (block blk, const symstack stk,
         if (expr_size != NULL) {
             (*expr_size) = copy_from.size;
         }
-        if (copy_from.size > copy_to.cap) {
+        if (copy_from.size > copy_to.size) {
             char *copy_to_name = in_buf + blk.start;
             char *copy_from_name = in_buf + blk.hotspots[0];
 
@@ -56,18 +56,18 @@ int gen_eq_expr (block blk, const symstack stk,
                 if (copy_from.name == NULL) {
                     start = blk.hotspots[3], end = blk.hotspots[4];
                     BABBLE_ASSERT (end > start);
-                    size_t len = end - start;
-                    if (expr_size != NULL) {
-                        (*expr_size) = len;
-                    }
+                    size_t len = end - start; // include a null byte
                     if (copy_to.name == NULL) {
-                        fprintf (out_file, "; line %d\n", start_line);
                         size_t sub_amt = WORDSZ_CEIL (len);
+                        if (expr_size != NULL) { (*expr_size) = sub_amt; }
                         // Keep stack pointer aligned with word size
                         fprintf (out_file,
                             "sub rsp, 0x%lx\n", sub_amt - len);
-                        // Make space for newline
-                        fprintf (out_file, "sub rsp, 0x1\n");
+                        // Place null byte
+                        fprintf (out_file,
+                            "sub rsp, 0x1\n"
+                            "mov rdx, %d\n"
+                            "mov [rsp], dl\n", 0x0);
                         for (size_t i = end - 1; i > start; i--) {
                             fprintf (out_file,
                                 "sub rsp, 0x1\n"
@@ -75,7 +75,7 @@ int gen_eq_expr (block blk, const symstack stk,
                                 "mov [rsp], dl\n", in_buf[i]);
                         }
                     } else {
-                        if (len > copy_to.cap) {
+                        if (len > copy_to.size) {
                             char *copy_to_name = in_buf + blk.start;
                             char tmp = copy_to_name[copy_to.name_len];
                             copy_to_name[copy_to.name_len] = '\0';
@@ -91,7 +91,12 @@ int gen_eq_expr (block blk, const symstack stk,
                         BABBLE_ASSERT (copy_to.category == STRING);
                         fprintf (out_file,
                             "mov r9, rbp\n"
-                            "sub r9, 0x%lx\n", copy_to.offset - len + 1);
+                            "sub r9, 0x%lx\n", copy_to.offset - len);
+                        // Place null byte
+                        fprintf (out_file,
+                            "sub r9, 0x1\n"
+                            "mov rdx, %d\n"
+                            "mov [r9], dl\n", 0x0); 
                         for (size_t i = end - 1; i > start; i--) {
                             fprintf (out_file,
                                 "sub r9, 0x1\n"
@@ -101,17 +106,16 @@ int gen_eq_expr (block blk, const symstack stk,
                     }
                 } else {
                     BABBLE_ASSERT (copy_to.name == NULL);
-                    if (expr_size != NULL) {
-                        (*expr_size) = copy_from.size;
-                    }
-                    size_t sub_amt = WORDSZ_CEIL (copy_from.size);
+                    BABBLE_ASSERT ((copy_from.size % 8) == 0);
+                    if (expr_size != NULL) { (*expr_size) = copy_from.size; }
+
                     fprintf (out_file,
                         "mov rdi, rbp\n"
                         "sub rdi, 0x%lx\n"
                         "sub rsp, 0x%lx\n"
                         "mov rsi, rsp\n"
                         "mov rdx, 0x%lx\n", copy_from.offset,
-                        sub_amt, copy_from.size);
+                        copy_from.size, copy_from.size);
                     GET_INTRINSIC (&tmp, "memcpy");
                     fprintf (out_file, "%s", tmp);
                 }
