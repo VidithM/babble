@@ -11,13 +11,14 @@ e.g. `babble -g -o temp temp.bbl`
 **Language details**:
 
 Data types:
-* Babble's data types include 64bit integers and strings.
+* Babble's current data types include 64bit unsigned integers and strings. Babble is statically typed, and all data besides integers must be declared with an explicit type (subject to change), using the `expr` construct. `expr (<type>, <expression>)` represents an expression of type `type`. Beyond initializing data, `expr` can currently be used to perform basic logical operations on integers (using the `bool` type), and will support more comprehensive expressions in the future. Operations on integers are currently limited to addition, and will be shortly expanded. See the examples for more information.
 
 Control structures:
-* ...
+* Babble supports loops using the `wrep` and `rep` constructs, and branching with `if`. `wrep` is a while loop; `wrep (x)`, where `x` is an integer, will run the following block as long as `x` is non-zero. `if` functions similarly. `rep` is a static for loop, where `rep (x)` runs exactly `x` times, with no conditional evaluation. 
+* Scoping is supported
 
-Misc:
-* ...
+I/O:
+* Babble does not currently provide any mechanism for input. Output is exclusively to stdout, using `print`, and is available for all data types.
 
 **Example code**:
 
