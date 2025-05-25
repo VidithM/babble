@@ -3,6 +3,8 @@ Babble v1.4
 Babble is a simple imperative programming language I'm working on to practice making a compiler. This code is a compiler implementation for Linux x86-64 using Netwide assembly.
 ### Examples/Usage:
 To build, simply run `make` or `make debug` for debug mode (turns on asserts and debug printouts). You can also install in your PATH with `make install`. 
+For better portability, you can define `BABBLE_STATIC=1` for a static build.
+
 Babble supports a few gcc-like flags:
 * `-g`: Compile with debug symbols, using the DWARF format
 * `-o <name>`: Specifies a name for the executable
