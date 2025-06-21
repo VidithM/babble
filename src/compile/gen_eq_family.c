@@ -38,6 +38,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             lsym_info.size = rsym_size;
             lsym_info.offset = (*frame_size) + WORDSZ_CEIL (rsym_size);
             lsym_info.category = EXPR_SYMCAT (blk.label);
+            lsym_info.location = LOCAL;
             ret = insert_symbol (&stk, lsym_info);
             (*frame_size) += WORDSZ_CEIL (lsym_info.size);
         } else {
@@ -78,7 +79,7 @@ int gen_eq_family (block blk, symstack stk, char *in_buf, size_t *frame_size,
             lsym_info.size = rsym_info.size;
             lsym_info.offset = (*frame_size) + WORDSZ_CEIL (rsym_info.size);
             lsym_info.category = rsym_info.category;
-
+            lsym_info.location = LOCAL;
             ret = insert_symbol (&stk, lsym_info);
             (*frame_size) += WORDSZ_CEIL (lsym_info.size);
         } else {

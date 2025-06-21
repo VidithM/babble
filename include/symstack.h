@@ -17,12 +17,19 @@ enum sym_category {
     // FUTURE: FUNCTION?
 };
 
+enum sym_location {
+    LOCAL, // default
+    GLOBAL,
+    EXTERN, 
+};
+
 typedef struct symbol {
     const char *name;
     size_t name_len;
     size_t size;
     size_t offset;
     enum sym_category category;
+    enum sym_location location;
 } symbol;
 
 typedef struct symstack_opaque* symstack;

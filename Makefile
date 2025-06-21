@@ -12,7 +12,7 @@ ifeq ($(BABBLE_STATIC), 1)
     all: CFLAGS += -static
 endif
 all:
-	@gcc -std=c11 $(CFLAGS) -o $(BUILD_DIR)/babble $(INCLUDE_DIRS) $(BABBLE_SOURCES)
+	@$(CC) -std=c11 $(CFLAGS) -o $(BUILD_DIR)/babble $(INCLUDE_DIRS) $(BABBLE_SOURCES)
 	
 debug: CFLAGS += -O0 -g -DDEBUG
 debug: all
