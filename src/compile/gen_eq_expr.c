@@ -7,10 +7,10 @@ int gen_eq_expr (block blk, const symstack stk,
     char *in_buf, size_t *expr_size, FILE *out_file, char *msg) {
     
     int ret = BABBLE_OK;
-    enum sym_category expr_type;
+    enum expr_category expr_type;
 
     if (copy_from.name == NULL) {
-        expr_type = EXPR_SYMCAT (blk.label);
+        expr_type = EXPRCAT (blk.label);
     } else {
         expr_type = copy_from.category;
     }
@@ -50,7 +50,7 @@ int gen_eq_expr (block blk, const symstack stk,
 
     int start_line = blk.start_line;
     switch (expr_type) {
-        case STRING:
+        case STR_EXPR:
             {
                 size_t start, end;
                 if (copy_from.name == NULL) {
@@ -121,7 +121,7 @@ int gen_eq_expr (block blk, const symstack stk,
                 }
             }
             break;
-        case BOOL:
+        case BOOL_EXPR:
             {
                 size_t ltok_start, ltok_end, rtok_start, rtok_end;
                 size_t lsym_len, rsym_len;
@@ -130,7 +130,8 @@ int gen_eq_expr (block blk, const symstack stk,
                 int64_t lval, rval;
 
                 (*expr_size) = 8;
-
+                BABBLE_BRKPT;
+                BABBLE_ASSERT (copy_from.name == NULL);
                 if (copy_from.name == NULL) {
                     ltok_start = blk.hotspots[3]; ltok_end = blk.hotspots[4];
                     rtok_start = blk.hotspots[5]; rtok_end = blk.hotspots[6];
@@ -150,8 +151,7 @@ int gen_eq_expr (block blk, const symstack stk,
                         fprintf (out_file,
                             "mov r8, %ld\n", lval);
                     } else {
-                        if ((lsym_info.category != BOOL) && 
-                            (lsym_info.category != INT64)) {
+                        if (lsym_info.category != INT64) {
                             TRUNCATE (lsym, lsym_len);
                             BABBLE_MSG_COMPILE_ERR (start_line,
                                 " (cannot use variable \"%s\" of non-integral/bool"
@@ -169,8 +169,7 @@ int gen_eq_expr (block blk, const symstack stk,
                         fprintf (out_file,
                             "mov r9, %ld\n", rval);
                     } else {
-                        if ((rsym_info.category != BOOL) && 
-                            (rsym_info.category != INT64)) {
+                        if (rsym_info.category != INT64) {
                             TRUNCATE (rsym, rsym_len);
                             BABBLE_MSG_COMPILE_ERR (start_line,
                                 " (cannot use variable \"%s\" of non-integral/bool"

@@ -51,7 +51,7 @@ static int push_block (blocklist *blist,
 }
 
 #ifdef DEBUG
-static char* LABEL_NAMES[] = {"UNKNOWN", "EMPTY", "INC",
+static char* LABEL_NAMES[] = {"UNKNOWN", "EMPTY", "GLOB", "INC",
     "EQ", "EQ_STR_EXPR", "EQ_BOOL_EXPR_SAME", "EQ_BOOL_EXPR_LE",
     "EQ_BOOL_EXPR_OR", "EQ_BOOL_EXPR_AND",
     "REP", "COND", "WREP", "PRINT", "SCOPE_OPEN", "SCOPE_CLOSE"};
@@ -215,10 +215,13 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                     EQ);
                 blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[0] = match_res;
                 start = end;
-            } else if (match (in_buf, start, end, "print", 5)) {
+            } else if (match (in_buf, start, end, "print", 5) ||
+                       match (in_buf, start, end, "glob", 4)) {
+
                 // next should be a '('
+                int is_print = match (in_buf, start, end, "print", 5);
                 size_t h1, h2;
-                match_res = find_next (in_buf, start + 5, end);
+                match_res = find_next (in_buf, start + (is_print ? 5 : 4), end);
                 if (match_res == -1) { break; }
                 if (in_buf[match_res] != '(') { break; }
                 h1 = match_res;
@@ -235,7 +238,7 @@ int lex (char *in_buf, size_t buf_size, blocklist *blist, char *msg) {
                     start,
                     end,
                     line,
-                    PRINT);
+                    (is_print ? PRINT : GLOB));
                 blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[0] = h1;
                 blist_phase2.blocks[blist_phase2.nblocks - 1].hotspots[1] = h2;
                 start = end;

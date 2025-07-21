@@ -1,3 +1,5 @@
+glob (x);
+
 % Prints the first n Fibonacci numbers
 n = 10;
 

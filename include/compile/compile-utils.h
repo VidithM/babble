@@ -5,6 +5,12 @@
 
 extern const char* TYPE_NAMES[];
 extern const int BLOCKTYPE_TO_SYMCAT[];
+extern const int BLOCKTYPE_TO_EXPRCAT[];
+
+enum expr_category {
+    STR_EXPR,
+    BOOL_EXPR
+};
 
 #define TRUNCATE(_sym, _len) char _trunc_tmp_ ##_sym = _sym[_len]; _sym[_len] = '\0';
 #define UNTRUNCATE(_sym, _len) _sym[_len] = _trunc_tmp_ ##_sym;
@@ -40,10 +46,10 @@ extern const int BLOCKTYPE_TO_SYMCAT[];
     UNTRUNCATE (_sym, _len);                                                \
 }
 
-#define INTEG_TYPE_CHECK(_sym)                                              \
-    ((_sym.category == INT64) || (_sym.category == BOOL))                   \
+#define INTEG_TYPE_CHECK(_sym) (_sym.category == INT64)
 
 #define EXPR_SYMCAT(_lex_type) BLOCKTYPE_TO_SYMCAT[_lex_type - EQ]
+#define EXPRCAT(_lex_type) BLOCKTYPE_TO_EXPRCAT[_lex_type - EQ]
 
 #define WORDSZ 8
 #define WORDSZ_CEIL(n) (WORDSZ * ((n + WORDSZ - 1) / WORDSZ))
